@@ -1,0 +1,62 @@
+[
+  {
+    "question": "What are the ethical implications of using AI in criminal sentencing?",
+    "domain": "Ethics"
+  },
+  {
+    "question": "Should autonomous vehicles prioritize the safety of passengers over pedestrians in unavoidable accident scenarios?",
+    "domain": "Ethics"
+  },
+  {
+    "question": "Is it ethical to use AI-generated art in commercial products without compensating human artists?",
+    "domain": "Ethics"
+  },
+  {
+    "question": "Explain the philosophical concept of the Ship of Theseus and its modern implications for personal identity.",
+    "domain": "Philosophy"
+  },
+  {
+    "question": "Does free will exist, or are all human decisions determined by prior causes?",
+    "domain": "Philosophy"
+  },
+  {
+    "question": "Explain quantum entanglement and its potential applications in computing and communication.",
+    "domain": "Science"
+  },
+  {
+    "question": "What are the most promising approaches to nuclear fusion energy, and what obstacles remain?",
+    "domain": "Science"
+  },
+  {
+    "question": "What are the long-term risks and benefits of CRISPR gene editing in humans?",
+    "domain": "Science"
+  },
+  {
+    "question": "Design a strategy for a small city to become carbon-neutral within 15 years.",
+    "domain": "Planning"
+  },
+  {
+    "question": "How should a startup allocate a limited budget between product development, marketing, and hiring in its first year?",
+    "domain": "Planning"
+  },
+  {
+    "question": "A hospital has one available organ for transplant and three eligible patients with different survival probabilities and social circumstances. How should the decision be made?",
+    "domain": "Problem Solving"
+  },
+  {
+    "question": "How can we reduce misinformation on social media without compromising freedom of speech?",
+    "domain": "Problem Solving"
+  },
+  {
+    "question": "What governance framework should be established for artificial general intelligence if it is developed?",
+    "domain": "Technology"
+  },
+  {
+    "question": "Should social media platforms be held legally responsible for the content their algorithms amplify?",
+    "domain": "Technology"
+  },
+  {
+    "question": "Write a compelling argument both for and against universal basic income, then synthesize a balanced conclusion.",
+    "domain": "General"
+  }
+]

@@ -1,0 +1,32 @@
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+env/
+.env
+.env.*
+*.egg-info/
+dist/
+build/
+
+# Experiment data (generated at runtime)
+data/outputs/*.json
+data/results/*.csv
+
+# Streamlit secrets (NEVER commit)
+.streamlit/secrets.toml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+credentials.json
+*.key
