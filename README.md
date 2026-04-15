@@ -122,7 +122,7 @@ ollama pull llama3.2
 ollama serve
 
 # 4. Clone and run
-git clone https://github.com/YOUR_USERNAME/multi-agent-debate.git
+git clone https://github.com/diogovasconcelosmerca/multi-agent-debate.git
 cd multi-agent-debate
 python -m venv venv
 venv\Scripts\activate          # Windows
@@ -137,7 +137,7 @@ streamlit run app.py
 # 1. Get a free API key at https://console.groq.com
 
 # 2. Clone and run
-git clone https://github.com/YOUR_USERNAME/multi-agent-debate.git
+git clone https://github.com/diogovasconcelosmerca/multi-agent-debate.git
 cd multi-agent-debate
 pip install -r requirements.txt
 streamlit run app.py
