@@ -13,9 +13,11 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any
 
 import requests
+import groq
 
 from core.config import GENERATE_TIMEOUT, OLLAMA_BASE_URL
 
@@ -113,8 +115,6 @@ class OllamaClient:
 # Groq backend
 # -----------------------------------------------------------------------
 
-GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-
 # Free-tier models available on Groq
 GROQ_MODELS = [
     "llama-3.3-70b-versatile",
@@ -125,37 +125,25 @@ GROQ_MODELS = [
 
 
 class GroqClient:
-    """Synchronous client for the Groq cloud API (OpenAI-compatible)."""
+    """Synchronous client for the Groq cloud API using official sdk."""
 
     BACKEND = "groq"
 
     def __init__(self, api_key: str):
         self.api_key = api_key
-        self._session = requests.Session()
-        self._session.headers.update({
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        })
+        self.client = groq.Groq(api_key=api_key)
 
     def check_connection(self) -> bool:
         try:
-            resp = self._session.get(
-                "https://api.groq.com/openai/v1/models",
-                timeout=8,
-            )
-            return resp.status_code == 200
-        except requests.ConnectionError:
+            self.client.models.list()
+            return True
+        except Exception:
             return False
 
     def list_models(self) -> list[str]:
         try:
-            resp = self._session.get(
-                "https://api.groq.com/openai/v1/models",
-                timeout=8,
-            )
-            resp.raise_for_status()
-            data = resp.json().get("data", [])
-            return sorted(m["id"] for m in data if m.get("active", True))
+            models_page = self.client.models.list()
+            return sorted(m.id for m in models_page.data if m.active)
         except Exception:
             return list(GROQ_MODELS)
 
@@ -172,42 +160,34 @@ class GroqClient:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
-        payload = {
-            "model": model,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": 4096,
-        }
-
         try:
-            resp = self._session.post(
-                GROQ_API_URL,
-                json=payload,
+            completion = self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=4096,
                 timeout=timeout,
             )
-            resp.raise_for_status()
-            return resp.json()["choices"][0]["message"]["content"]
-        except requests.ConnectionError as exc:
+            return completion.choices[0].message.content or ""
+        except groq.APIConnectionError as exc:
             raise LlmConnectionError(
                 "Cannot connect to Groq API. Check your internet connection."
             ) from exc
-        except requests.Timeout as exc:
+        except groq.APITimeoutError as exc:
             raise LlmConnectionError(
                 f"Groq request timed out after {timeout}s."
             ) from exc
-        except requests.HTTPError as exc:
-            status = getattr(exc.response, "status_code", "?")
-            body = getattr(exc.response, "text", "")[:200]
-            if status == 401:
-                raise LlmConnectionError(
-                    "Invalid Groq API key. Get one free at console.groq.com"
-                ) from exc
-            elif status == 429:
-                raise LlmConnectionError(
-                    "Groq rate limit exceeded. Wait a moment and try again."
-                ) from exc
+        except groq.AuthenticationError as exc:
             raise LlmConnectionError(
-                f"Groq API error ({status}): {body}"
+                "Invalid Groq API key. Get one free at console.groq.com"
+            ) from exc
+        except groq.RateLimitError as exc:
+            raise LlmConnectionError(
+                "Groq rate limit exceeded. Wait a moment and try again."
+            ) from exc
+        except groq.APIError as exc:
+            raise LlmConnectionError(
+                f"Groq API error: {exc}"
             ) from exc
 
     def generate_json(
@@ -218,12 +198,30 @@ class GroqClient:
         temperature: float = 0.2,
         timeout: int = GENERATE_TIMEOUT,
     ) -> dict:
-        full_prompt = prompt + "\n\nReturn ONLY valid JSON. No extra text."
-        raw = self.generate(
-            prompt=full_prompt, model=model, system=system,
-            temperature=temperature, timeout=timeout,
-        )
-        return _parse_json(raw)
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        try:
+            completion = self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=4096,
+                timeout=timeout,
+                response_format={"type": "json_object"},
+            )
+            raw = completion.choices[0].message.content or "{}"
+            return _parse_json(raw)
+        except Exception as e:
+            # Fallback to standard prompt if json_object is not supported by the model
+            full_prompt = prompt + "\n\nReturn ONLY valid JSON. No extra text."
+            raw = self.generate(
+                prompt=full_prompt, model=model, system=system,
+                temperature=temperature, timeout=timeout,
+            )
+            return _parse_json(raw)
 
 
 # -----------------------------------------------------------------------
@@ -231,12 +229,20 @@ class GroqClient:
 # -----------------------------------------------------------------------
 
 def _parse_json(raw: str) -> dict:
-    """Parse JSON from LLM output, handling markdown fences."""
+    """Parse JSON from LLM output, handling markdown fences and unstructured text around it."""
     text = raw.strip()
-    if text.startswith("```"):
-        lines = text.split("\n")
-        lines = [ln for ln in lines if not ln.strip().startswith("```")]
-        text = "\n".join(lines).strip()
+
+    # Try to extract content inside markdown JSON blocks
+    match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+    if match:
+        text = match.group(1).strip()
+    else:
+        # If no markdown block, try to find the first '{' and last '}'
+        start_idx = text.find("{")
+        end_idx = text.rfind("}")
+        if start_idx != -1 and end_idx != -1 and end_idx >= start_idx:
+            text = text[start_idx:end_idx+1].strip()
+
     try:
         return json.loads(text)
     except json.JSONDecodeError:
