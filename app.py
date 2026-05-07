@@ -1,5 +1,10 @@
 """
 MADS -- Multi-Agent Debate System
+
+Home page: hero, pipeline overview, and the global sidebar that lets you
+choose a backend (Ollama / Groq / Gemini), supply credentials, and pick a
+model. The selected client is stored in `st.session_state` so the other
+pages reuse it without re-instantiating.
 """
 
 import sys
@@ -12,19 +17,33 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 from core.config import (
+    BACKENDS,
     DEFAULT_DEBATE_ROUNDS,
     DEFAULT_MODEL,
     DEFAULT_TEMPERATURE,
+    GEMINI_API_KEY,
+    GEMINI_DEFAULT_MODEL,
     GROQ_API_KEY,
     GROQ_DEFAULT_MODEL,
     MAX_DEBATE_ROUNDS,
+    OLLAMA_FAST_MODEL,
     TASK_DOMAINS,
 )
-from core.llm_client import GroqClient, OllamaClient, get_client
-from core.theme import C, favicon_uri, inject_premium_css, logo_img, sidebar_brand, sidebar_status
+from core.llm_client import GeminiClient, GroqClient, OllamaClient
+from core.theme import (
+    C,
+    favicon_uri,
+    info_banner,
+    inject_premium_css,
+    logo_img,
+    sidebar_brand,
+    sidebar_hint,
+    sidebar_label,
+    sidebar_status,
+)
 
 st.set_page_config(
-    page_title="MADS",
+    page_title="MADS — Multi-Agent Debate",
     page_icon=favicon_uri(),
     layout="wide",
     initial_sidebar_state="expanded",
@@ -32,81 +51,154 @@ st.set_page_config(
 
 inject_premium_css()
 
+
 # ---------------------------------------------------------------------------
 # Sidebar
 # ---------------------------------------------------------------------------
 
+_BACKEND_LABEL_TO_ID = {meta["label"]: bid for bid, meta in BACKENDS.items()}
+_BACKEND_LABELS = list(_BACKEND_LABEL_TO_ID.keys())
+
+
+def _default_model_for(backend_id: str) -> str:
+    return {
+        "ollama": DEFAULT_MODEL,
+        "groq": GROQ_DEFAULT_MODEL,
+        "gemini": GEMINI_DEFAULT_MODEL,
+    }[backend_id]
+
+
 with st.sidebar:
     sidebar_brand()
 
-    # Backend selector
-    st.markdown(f'<div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:{C["text_3"]};margin:8px 0 4px 0;">Backend</div>', unsafe_allow_html=True)
-    backend = st.radio(
+    # --- Backend (segmented) --------------------------------------------
+    sidebar_label("Backend")
+    backend_label = st.radio(
         "backend",
-        ["Ollama (local)", "Groq (cloud)"],
+        _BACKEND_LABELS,
         horizontal=True,
         label_visibility="collapsed",
+        index=0,
     )
-    st.session_state["backend"] = "groq" if "Groq" in backend else "ollama"
+    backend_id = _BACKEND_LABEL_TO_ID[backend_label]
+    st.session_state["backend"] = backend_id
 
-    if st.session_state["backend"] == "groq":
-        groq_key = st.text_input(
-            "GROQ API KEY",
-            value=GROQ_API_KEY,
-            type="password",
-            help="Free at console.groq.com",
-        )
-        st.session_state["groq_api_key"] = groq_key
-        if groq_key:
-            client = GroqClient(groq_key)
-        else:
-            client = None
-    else:
-        client = OllamaClient()
-        st.session_state["groq_api_key"] = ""
-
-    if client:
-        connected = client.check_connection()
-        sidebar_status(connected)
-        st.session_state["client"] = client
-
-        models = client.list_models() if connected else []
-        if models:
-            default_model = GROQ_DEFAULT_MODEL if st.session_state["backend"] == "groq" else DEFAULT_MODEL
-            idx = 0
-            for i, m in enumerate(models):
-                if m == default_model:
-                    idx = i
-                    break
-            model = st.selectbox("MODEL", models, index=idx)
-        else:
-            model = st.text_input(
-                "MODEL",
-                value=GROQ_DEFAULT_MODEL if st.session_state["backend"] == "groq" else DEFAULT_MODEL,
-            )
-        st.session_state["model"] = model
-    else:
-        sidebar_status(False)
-        st.session_state["model"] = GROQ_DEFAULT_MODEL
-
-    temperature = st.slider("TEMPERATURE", 0.0, 2.0, DEFAULT_TEMPERATURE, step=0.1)
-    st.session_state["temperature"] = temperature
-
-    rounds = st.slider("ROUNDS", 1, MAX_DEBATE_ROUNDS, DEFAULT_DEBATE_ROUNDS)
-    st.session_state["debate_rounds"] = rounds
-
-    domain = st.selectbox("DOMAIN", TASK_DOMAINS, index=0)
-    st.session_state["domain"] = domain
-
-    st.markdown("---")
+    meta = BACKENDS[backend_id]
     st.markdown(
-        f'<div style="font-size:10px;color:{C["text_4"]};text-align:center;">v2.0</div>',
+        f'<div class="m-sb-hint" style="margin:6px 0 4px 0;">'
+        f'<strong style="color:{C["text_2"]};font-weight:600;">{meta["tagline"]}</strong><br>{meta["help"]}'
+        f'</div>',
         unsafe_allow_html=True,
     )
+
+    # --- Credentials / client construction ------------------------------
+    client = None
+
+    if backend_id == "ollama":
+        client = OllamaClient()
+        st.session_state["groq_api_key"] = ""
+        st.session_state["gemini_api_key"] = ""
+
+    elif backend_id == "groq":
+        sidebar_label("Groq API key")
+        groq_key = st.text_input(
+            "groq_key",
+            value=GROQ_API_KEY,
+            type="password",
+            placeholder="gsk_...",
+            label_visibility="collapsed",
+        )
+        st.session_state["groq_api_key"] = groq_key
+        st.session_state["gemini_api_key"] = ""
+        if groq_key:
+            client = GroqClient(groq_key)
+
+    elif backend_id == "gemini":
+        sidebar_label("Gemini API key")
+        gem_key = st.text_input(
+            "gem_key",
+            value=GEMINI_API_KEY,
+            type="password",
+            placeholder="AIza...",
+            label_visibility="collapsed",
+        )
+        st.session_state["gemini_api_key"] = gem_key
+        st.session_state["groq_api_key"] = ""
+        if gem_key:
+            client = GeminiClient(gem_key)
+
+    # --- Connection status ----------------------------------------------
+    connected = False
+    if client is not None:
+        connected = client.check_connection()
+        sidebar_status(connected, label=meta["label"])
+        st.session_state["client"] = client
+    else:
+        sidebar_status(False, label=meta["label"])
+        st.session_state["client"] = None
+
+    # Backend-specific hint when not connected
+    if not connected:
+        if backend_id == "ollama":
+            sidebar_hint(
+                "Run <code>ollama serve</code>, then <code>ollama pull "
+                f"{OLLAMA_FAST_MODEL}</code> for the fastest experience."
+            )
+        elif backend_id == "groq":
+            sidebar_hint("Free key at <code>console.groq.com</code>.")
+        elif backend_id == "gemini":
+            sidebar_hint("Free key at <code>aistudio.google.com/app/apikey</code>.")
+
+    # --- Model -----------------------------------------------------------
+    sidebar_label("Model")
+    if client and connected:
+        models = client.list_models()
+        default_model = _default_model_for(backend_id)
+        if models:
+            idx = next((i for i, m in enumerate(models) if m == default_model), 0)
+            model = st.selectbox("model", models, index=idx, label_visibility="collapsed")
+        else:
+            model = st.text_input("model", value=default_model, label_visibility="collapsed")
+    else:
+        model = st.text_input(
+            "model",
+            value=_default_model_for(backend_id),
+            label_visibility="collapsed",
+        )
+    st.session_state["model"] = model
+
+    # --- Tunables --------------------------------------------------------
+    sidebar_label("Sampling")
+    temperature = st.slider("Temperature", 0.0, 2.0, DEFAULT_TEMPERATURE, step=0.1)
+    st.session_state["temperature"] = temperature
+
+    rounds = st.slider("Debate rounds", 1, MAX_DEBATE_ROUNDS, DEFAULT_DEBATE_ROUNDS)
+    st.session_state["debate_rounds"] = rounds
+
+    sidebar_label("Domain")
+    domain = st.selectbox("domain", TASK_DOMAINS, index=0, label_visibility="collapsed")
+    st.session_state["domain"] = domain
+
+    st.markdown(
+        '<div class="m-sb-footer">MADS · v2.1</div>',
+        unsafe_allow_html=True,
+    )
+
 
 # ---------------------------------------------------------------------------
 # Hero
 # ---------------------------------------------------------------------------
+
+# Live state pills under the hero so users immediately see what's wired up.
+backend_meta = BACKENDS[st.session_state["backend"]]
+backend_dot_color = C["success"] if connected else C["error"]
+hero_tags = f'''
+<div class="m-hero-meta">
+    <span class="m-tag"><span class="m-tag-dot" style="background:{backend_dot_color};"></span>{backend_meta["label"]}</span>
+    <span class="m-tag">Model · {st.session_state.get("model","")}</span>
+    <span class="m-tag">Rounds · {st.session_state.get("debate_rounds", 1)}</span>
+</div>
+'''
 
 st.markdown(f"""
 <div class="m-hero">
@@ -114,17 +206,17 @@ st.markdown(f"""
     <h1 class="m-hero-title">Multi-Agent <span class="m-hero-accent">Debate</span></h1>
     <p class="m-hero-sub">
         Does structured debate between AI agents produce better answers
-        than a single model? Test that hypothesis with open-source LLMs
-        -- locally via Ollama or in the cloud via Groq.
+        than a single model? Test that hypothesis with open-source LLMs —
+        locally via Ollama, or in the cloud via Groq or Gemini.
     </p>
+    {hero_tags}
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown(f"""
-<style>.m-hero img {{ margin: 0 auto; }}</style>
-""", unsafe_allow_html=True)
-
+# ---------------------------------------------------------------------------
 # Features
+# ---------------------------------------------------------------------------
+
 st.markdown(f"""
 <div class="m-features">
     <div class="m-feat">
@@ -154,7 +246,10 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# ---------------------------------------------------------------------------
 # Pipeline
+# ---------------------------------------------------------------------------
+
 st.markdown(f"""
 <div class="m-flow">
     <div class="m-flow-label">Debate Pipeline</div>
@@ -180,16 +275,31 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-if not st.session_state.get("client"):
-    st.markdown(f"""
-    <div class="m-banner m-banner-base" style="margin-top:1.5rem;">
-        <span>No backend connected. Select Ollama (local) or enter a Groq API key in the sidebar.</span>
-    </div>
-    """, unsafe_allow_html=True)
+# ---------------------------------------------------------------------------
+# Connection feedback
+# ---------------------------------------------------------------------------
+
+if client is None:
+    if backend_id == "ollama":
+        info_banner("No Ollama client available — internal error.", variant="warn")
+    else:
+        info_banner(
+            f"Add a {backend_meta['label']} API key in the sidebar to start running debates.",
+            variant="base",
+        )
 elif not connected:
-    backend_name = "Groq" if st.session_state["backend"] == "groq" else "Ollama"
-    st.markdown(f"""
-    <div class="m-banner m-banner-base" style="margin-top:1.5rem;">
-        <span>{backend_name} is not connected. {"Check your API key." if backend_name == "Groq" else "Run <code>ollama serve</code> and refresh."}</span>
-    </div>
-    """, unsafe_allow_html=True)
+    if backend_id == "ollama":
+        info_banner(
+            "Ollama is not reachable. Run `ollama serve`, then refresh this page.",
+            variant="warn",
+        )
+    else:
+        info_banner(
+            f"{backend_meta['label']} is not reachable. Double-check the API key and try again.",
+            variant="warn",
+        )
+else:
+    info_banner(
+        f"{backend_meta['label']} is ready · open Interactive Chat from the sidebar to begin.",
+        variant="ok",
+    )

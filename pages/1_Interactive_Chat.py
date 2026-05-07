@@ -43,12 +43,16 @@ def _get_client():
     """Retrieve the shared client from session state."""
     client = st.session_state.get("client")
     if client is None:
-        st.error("No LLM backend connected. Go to the Home page and configure Ollama or Groq in the sidebar.")
+        st.error("No LLM backend connected. Go to the Home page and configure Ollama, Groq, or Gemini in the sidebar.")
         st.stop()
     return client
 
 
-page_header("Interactive Chat", "Ask a question. Watch the agents debate. Compare results.")
+page_header(
+    "Interactive Chat",
+    "Ask a question. Watch the agents debate. Compare results side by side.",
+    eyebrow="Live debate",
+)
 
 # ---------------------------------------------------------------------------
 # Input
@@ -56,8 +60,8 @@ page_header("Interactive Chat", "Ask a question. Watch the agents debate. Compar
 
 question = st.text_area(
     "question",
-    height=100,
-    placeholder="Enter your question here...",
+    height=110,
+    placeholder="Pose a question — open-ended, ethical, scientific, or strategic. The harder the question, the more debate helps.",
     label_visibility="collapsed",
 )
 

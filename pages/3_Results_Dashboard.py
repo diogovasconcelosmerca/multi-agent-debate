@@ -42,7 +42,11 @@ PL = dict(
 COL_B = C["accent"]
 COL_D = C["agent_c"]
 
-page_header("Results Dashboard", "Analyse and export experiment data.")
+page_header(
+    "Results Dashboard",
+    "Cross-experiment analysis: score profiles, distributions, latency, and CSV export.",
+    eyebrow="Analytics",
+)
 
 df = load_summary_df()
 

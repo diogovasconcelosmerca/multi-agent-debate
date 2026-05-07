@@ -32,12 +32,16 @@ def _s(key, default):
 def _get_client():
     client = st.session_state.get("client")
     if client is None:
-        st.error("No LLM backend connected. Go to the Home page and configure Ollama or Groq in the sidebar.")
+        st.error("No LLM backend connected. Go to the Home page and configure Ollama, Groq, or Gemini in the sidebar.")
         st.stop()
     return client
 
 
-page_header("Experiment Runner", "Batch-run experiments. Results are auto-saved.")
+page_header(
+    "Experiment Runner",
+    "Batch-run baseline + debate over many questions. Each run is auto-saved for the dashboard.",
+    eyebrow="Batch evaluation",
+)
 
 source = st.radio("source", ["Sample questions", "Custom list"], horizontal=True, label_visibility="collapsed")
 

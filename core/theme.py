@@ -1,5 +1,5 @@
 """
-MADS Design System v2
+MADS Design System v3
 
 Palette: Orange (#E8733A) + Charcoal (#111113).
 Effects: Glass-morphism, fade-in animations, hover micro-interactions.
@@ -13,27 +13,27 @@ import streamlit as st
 # Palette
 # ---------------------------------------------------------------------------
 C = {
-    "bg_app":       "#111113",
-    "bg_surface":   "#1C1C1E",
-    "bg_elevated":  "#232326",
-    "bg_hover":     "#2A2A2E",
-    "bg_input":     "#19191B",
-    "bg_glass":     "rgba(28, 28, 30, 0.65)",
+    "bg_app":       "#0F0F11",
+    "bg_surface":   "#17171A",
+    "bg_elevated":  "#1F1F23",
+    "bg_hover":     "#27272B",
+    "bg_input":     "#131316",
+    "bg_glass":     "rgba(23, 23, 26, 0.72)",
     "accent":       "#E8733A",
     "accent_hover": "#F08044",
     "accent_muted": "#E8733A20",
     "agent_a":      "#E8733A",
     "agent_b":      "#8E8E9A",
     "agent_c":      "#D4A054",
-    "success":      "#5CB87A",
+    "success":      "#4DBB7A",
     "warning":      "#D4A054",
     "error":        "#D45454",
-    "text_1":       "#E8E8EC",
+    "text_1":       "#EEEEF1",
     "text_2":       "#A0A0A8",
     "text_3":       "#636368",
-    "text_4":       "#45454A",
-    "border":       "#2A2A2E",
-    "border_light": "#333338",
+    "text_4":       "#3F3F44",
+    "border":       "#26262A",
+    "border_light": "#33333A",
 }
 
 # ---------------------------------------------------------------------------
@@ -67,33 +67,62 @@ def inject_premium_css():
 # Components
 # ---------------------------------------------------------------------------
 
-def page_header(title: str, subtitle: str = ""):
+def page_header(title: str, subtitle: str = "", eyebrow: str = ""):
+    eb = f'<div class="m-eyebrow">{eyebrow}</div>' if eyebrow else ""
     sub = f'<p class="m-page-sub">{subtitle}</p>' if subtitle else ""
-    st.markdown(f'<div class="m-page-header"><h1 class="m-page-title">{title}</h1>{sub}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="m-page-header">{eb}<h1 class="m-page-title">{title}</h1>{sub}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def section_header(title: str, subtitle: str = ""):
     sub = f'<span class="m-section-sub"> — {subtitle}</span>' if subtitle else ""
-    st.markdown(f'<div class="m-section"><h2 class="m-section-title">{title}{sub}</h2></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="m-section"><h2 class="m-section-title">{title}{sub}</h2></div>',
+        unsafe_allow_html=True,
+    )
 
 
 def sidebar_brand():
     uri = _b64(_LOGO_SVG_RAW)
     st.markdown(f'''
-    <div style="display:flex;align-items:center;gap:10px;padding:4px 0 16px 0;">
+    <div class="m-sb-brand">
         <img src="{uri}" width="28" height="28" />
         <div>
-            <div style="font-size:15px;font-weight:700;color:{C["text_1"]};letter-spacing:-0.5px;line-height:1.2;">MADS</div>
-            <div style="font-size:10px;color:{C["text_3"]};line-height:1.3;">Multi-Agent Debate System</div>
+            <div class="m-sb-brand-title">MADS</div>
+            <div class="m-sb-brand-sub">Multi-Agent Debate System</div>
         </div>
     </div>
     ''', unsafe_allow_html=True)
 
 
-def sidebar_status(connected: bool):
-    c = C["success"] if connected else C["error"]
-    t = "Connected" if connected else "Offline"
-    st.markdown(f'<div style="font-size:11px;color:{c};margin-bottom:12px;">&#9679; {t}</div>', unsafe_allow_html=True)
+def sidebar_label(text: str):
+    """Tiny uppercase eyebrow used as a sidebar section divider."""
+    st.markdown(
+        f'<div class="m-sb-label">{text}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def sidebar_status(connected: bool, label: str = ""):
+    """Connection pill — green dot + 'Connected · <backend>' / red dot + 'Offline'."""
+    if connected:
+        cls, dot, txt = "m-status-ok", "&#9679;", f"Connected{' · ' + label if label else ''}"
+    else:
+        cls, dot, txt = "m-status-err", "&#9679;", f"Offline{' · ' + label if label else ''}"
+    st.markdown(
+        f'<div class="m-status-pill {cls}"><span class="m-status-dot">{dot}</span>{txt}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def sidebar_hint(text: str):
+    """Small grey hint text under the connection pill."""
+    st.markdown(
+        f'<div class="m-sb-hint">{text}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def chat_message(agent_name: str, role: str, content: str, time_s: float | None = None, align: str = "left"):
@@ -200,6 +229,19 @@ def winner_banner(winner: str):
     st.markdown(f'<div class="m-banner {cls} m-fadein"><span>{text}</span></div>', unsafe_allow_html=True)
 
 
+def info_banner(text: str, variant: str = "base"):
+    """Inline notice used on the home page when no backend is connected."""
+    cls = {
+        "base":  "m-banner-base",
+        "warn":  "m-banner-warn",
+        "ok":    "m-banner-win",
+    }.get(variant, "m-banner-base")
+    st.markdown(
+        f'<div class="m-banner {cls}"><span>{text}</span></div>',
+        unsafe_allow_html=True,
+    )
+
+
 def radar_chart_html(baseline_scores: dict, debate_scores: dict) -> str:
     """Generate an SVG radar chart comparing baseline vs debate scores."""
     import math
@@ -269,15 +311,24 @@ def radar_chart_html(baseline_scores: dict, debate_scores: dict) -> str:
 # ---------------------------------------------------------------------------
 _CSS = f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 /* === Base === */
 .stApp {{
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: {C["bg_app"]};
+    background:
+        radial-gradient(1200px 600px at 80% -10%, {C["accent"]}10, transparent 60%),
+        radial-gradient(900px 500px at -10% 110%, {C["agent_c"]}0A, transparent 60%),
+        {C["bg_app"]};
+    color: {C["text_1"]};
 }}
 #MainMenu, header, footer {{ visibility: hidden; }}
 .stDeployButton {{ display: none; }}
+
+code, kbd, pre {{
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    font-size: 12px;
+}}
 
 /* === Animations === */
 @keyframes fadeInUp {{
@@ -287,6 +338,11 @@ _CSS = f"""
 @keyframes pulse {{
     0%, 80%, 100% {{ opacity: 0.3; transform: scale(0.8); }}
     40% {{ opacity: 1; transform: scale(1); }}
+}}
+@keyframes pulseDot {{
+    0% {{ box-shadow: 0 0 0 0 rgba(77,187,122,0.55); }}
+    70% {{ box-shadow: 0 0 0 6px rgba(77,187,122,0); }}
+    100% {{ box-shadow: 0 0 0 0 rgba(77,187,122,0); }}
 }}
 @keyframes slideIn {{
     from {{ opacity: 0; transform: translateX(-8px); }}
@@ -314,13 +370,37 @@ section[data-testid="stSidebar"] label {{
     color: {C["text_3"]} !important; text-transform: uppercase;
     letter-spacing: 0.08em;
 }}
-section[data-testid="stSidebar"] .stSelectbox > div > div {{
-    background: {C["bg_input"]}; border: 1px solid {C["border"]};
-    border-radius: 8px; color: {C["text_1"]}; font-size: 13px;
-}}
+section[data-testid="stSidebar"] .stSelectbox > div > div,
 section[data-testid="stSidebar"] .stTextInput > div > div > input {{
     background: {C["bg_input"]}; border: 1px solid {C["border"]};
     border-radius: 8px; color: {C["text_1"]}; font-size: 13px;
+}}
+section[data-testid="stSidebar"] .stSelectbox > div > div:hover,
+section[data-testid="stSidebar"] .stTextInput > div > div > input:hover {{
+    border-color: {C["border_light"]};
+}}
+section[data-testid="stSidebar"] .stTextInput > div > div > input:focus {{
+    border-color: {C["accent"]}; box-shadow: 0 0 0 2px {C["accent"]}22;
+}}
+section[data-testid="stSidebar"] .stRadio > div {{
+    background: {C["bg_input"]};
+    border: 1px solid {C["border"]};
+    border-radius: 8px;
+    padding: 3px;
+    gap: 0;
+}}
+section[data-testid="stSidebar"] .stRadio > div > label {{
+    flex: 1; text-align: center; padding: 6px 4px;
+    border-radius: 6px; cursor: pointer;
+    font-size: 11px !important; font-weight: 500 !important;
+    color: {C["text_2"]} !important; text-transform: none !important;
+    letter-spacing: 0 !important; transition: all 0.15s;
+}}
+section[data-testid="stSidebar"] .stRadio > div > label:has(input:checked) {{
+    background: {C["accent"]}; color: #fff !important;
+}}
+section[data-testid="stSidebar"] .stRadio > div > label > div:first-child {{
+    display: none;  /* hide the radio dot, our segmented control style */
 }}
 
 /* Sidebar nav links */
@@ -337,29 +417,97 @@ section[data-testid="stSidebar"] a[data-testid="stSidebarNavLink"][aria-current=
     border-left: 2px solid {C["accent"]};
 }}
 
+/* Sidebar custom blocks */
+.m-sb-brand {{
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 0 14px 0;
+    border-bottom: 1px solid {C["border"]};
+    margin-bottom: 14px;
+}}
+.m-sb-brand-title {{
+    font-size: 15px; font-weight: 700; color: {C["text_1"]};
+    letter-spacing: -0.5px; line-height: 1.2;
+}}
+.m-sb-brand-sub {{
+    font-size: 10px; color: {C["text_3"]}; line-height: 1.3;
+}}
+.m-sb-label {{
+    font-size: 9px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.1em; color: {C["text_3"]};
+    margin: 14px 0 6px 0;
+}}
+.m-sb-hint {{
+    font-size: 10.5px; color: {C["text_3"]};
+    line-height: 1.5; margin-top: 4px;
+}}
+.m-sb-hint code {{
+    background: {C["bg_input"]}; padding: 1px 4px; border-radius: 3px;
+    font-size: 10.5px; color: {C["text_2"]};
+}}
+.m-sb-footer {{
+    margin-top: 18px; padding-top: 12px;
+    border-top: 1px solid {C["border"]};
+    font-size: 10px; color: {C["text_4"]};
+    text-align: center; letter-spacing: 0.04em;
+}}
+
+/* Status pill */
+.m-status-pill {{
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 500;
+    padding: 4px 10px; border-radius: 999px;
+    margin-bottom: 6px;
+}}
+.m-status-dot {{ font-size: 8px; line-height: 1; }}
+.m-status-ok {{
+    background: {C["success"]}14; color: {C["success"]};
+    border: 1px solid {C["success"]}30;
+}}
+.m-status-ok .m-status-dot {{
+    color: {C["success"]};
+    border-radius: 999px;
+    animation: pulseDot 2.2s infinite;
+}}
+.m-status-err {{
+    background: {C["error"]}14; color: {C["error"]};
+    border: 1px solid {C["error"]}30;
+}}
+
 /* === Layout === */
-.main .block-container {{ max-width: 1100px; padding: 2rem 2.5rem; }}
+.main .block-container {{ max-width: 1100px; padding: 2rem 2.5rem 3rem 2.5rem; }}
 
 /* === Page Header === */
 .m-page-header {{ margin-bottom: 1.75rem; }}
+.m-eyebrow {{
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.16em; color: {C["accent"]};
+    margin-bottom: 6px;
+}}
 .m-page-title {{
-    font-size: 1.4rem; font-weight: 700; letter-spacing: -0.03em;
-    color: {C["text_1"]}; margin: 0; line-height: 1.3;
+    font-size: 1.6rem; font-weight: 700; letter-spacing: -0.03em;
+    color: {C["text_1"]}; margin: 0; line-height: 1.25;
 }}
 .m-page-sub {{
-    font-size: 0.84rem; color: {C["text_3"]}; margin: 0.2rem 0 0 0; line-height: 1.5;
+    font-size: 0.88rem; color: {C["text_3"]}; margin: 0.35rem 0 0 0; line-height: 1.55;
+    max-width: 720px;
 }}
 
 /* === Section === */
 .m-section {{
-    margin: 1.75rem 0 0.85rem 0; padding-bottom: 0.5rem;
+    margin: 1.85rem 0 0.95rem 0; padding-bottom: 0.5rem;
     border-bottom: 1px solid {C["border"]};
+    position: relative;
+}}
+.m-section::after {{
+    content: ""; position: absolute; left: 0; bottom: -1px;
+    width: 36px; height: 2px;
+    background: {C["accent"]}; border-radius: 2px;
 }}
 .m-section-title {{
-    font-size: 0.95rem; font-weight: 600; color: {C["text_1"]};
+    font-size: 0.98rem; font-weight: 600; color: {C["text_1"]};
     letter-spacing: -0.01em; margin: 0; display: inline;
 }}
-.m-section-sub {{ font-size: 0.75rem; color: {C["text_3"]}; font-weight: 400; }}
+.m-section-sub {{ font-size: 0.78rem; color: {C["text_3"]}; font-weight: 400; }}
 
 /* === Chat Messages === */
 .m-chat-msg {{
@@ -375,22 +523,26 @@ section[data-testid="stSidebar"] a[data-testid="stSidebarNavLink"][aria-current=
 }}
 .m-chat-bubble {{
     background: {C["bg_surface"]}; border: 1px solid {C["border"]};
-    border-radius: 12px; padding: 10px 14px;
-    max-width: 85%; min-width: 200px;
-    transition: border-color 0.15s;
+    border-radius: 14px; padding: 11px 15px;
+    max-width: 85%;
+    transition: border-color 0.15s, transform 0.15s;
 }}
 .m-chat-bubble:hover {{ border-color: {C["border_light"]}; }}
 .m-chat-meta {{
     display: flex; align-items: center; gap: 6px; margin-bottom: 4px;
 }}
 .m-chat-name {{ font-weight: 600; font-size: 12px; }}
-.m-chat-role {{ font-size: 10px; color: {C["text_3"]}; }}
+.m-chat-role {{
+    font-size: 10px; color: {C["text_3"]};
+    background: {C["bg_elevated"]};
+    padding: 1px 6px; border-radius: 4px;
+}}
 .m-chat-time {{
     font-size: 10px; color: {C["text_4"]}; margin-left: auto;
     font-variant-numeric: tabular-nums;
 }}
 .m-chat-text {{
-    font-size: 13px; line-height: 1.7; color: {C["text_2"]};
+    font-size: 13.5px; line-height: 1.7; color: {C["text_2"]};
 }}
 
 /* === Typing Indicator === */
@@ -464,7 +616,7 @@ section[data-testid="stSidebar"] a[data-testid="stSidebarNavLink"][aria-current=
 /* === Metric === */
 .m-metric {{
     background: {C["bg_surface"]}; border: 1px solid {C["border"]};
-    border-radius: 10px; padding: 14px 12px; text-align: center;
+    border-radius: 12px; padding: 14px 12px; text-align: center;
     transition: transform 0.15s, border-color 0.15s;
 }}
 .m-metric:hover {{ transform: translateY(-1px); border-color: {C["border_light"]}; }}
@@ -472,7 +624,10 @@ section[data-testid="stSidebar"] a[data-testid="stSidebarNavLink"][aria-current=
     font-size: 9px; font-weight: 600; text-transform: uppercase;
     letter-spacing: 0.08em; color: {C["text_3"]}; margin-bottom: 5px;
 }}
-.m-metric-value {{ font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }}
+.m-metric-value {{
+    font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
+    line-height: 1.2; font-variant-numeric: tabular-nums;
+}}
 .m-metric-delta {{ font-size: 11px; font-weight: 500; margin-top: 2px; }}
 
 /* === Banner === */
@@ -484,6 +639,7 @@ section[data-testid="stSidebar"] a[data-testid="stSidebarNavLink"][aria-current=
 .m-banner-win {{ background: {C["success"]}0C; border: 1px solid {C["success"]}30; color: {C["success"]}; }}
 .m-banner-base {{ background: {C["accent"]}0C; border: 1px solid {C["accent"]}30; color: {C["accent"]}; }}
 .m-banner-tie {{ background: {C["text_3"]}0C; border: 1px solid {C["text_3"]}30; color: {C["text_2"]}; }}
+.m-banner-warn {{ background: {C["warning"]}0E; border: 1px solid {C["warning"]}30; color: {C["warning"]}; }}
 
 /* === Score Table === */
 .m-score-table {{
@@ -499,6 +655,7 @@ section[data-testid="stSidebar"] a[data-testid="stSidebarNavLink"][aria-current=
     padding: 8px 14px; font-size: 13px; color: {C["text_2"]};
     border-top: 1px solid {C["border"]}; background: {C["bg_surface"]};
     transition: background 0.1s;
+    font-variant-numeric: tabular-nums;
 }}
 .m-score-table tr:hover td {{ background: {C["bg_elevated"]}; }}
 .m-pos {{ color: {C["success"]}; font-weight: 600; }}
@@ -506,45 +663,80 @@ section[data-testid="stSidebar"] a[data-testid="stSidebarNavLink"][aria-current=
 .m-neu {{ color: {C["text_3"]}; }}
 
 /* === Hero === */
-.m-hero {{ padding: 3.5rem 1rem 2rem 1rem; text-align: center; }}
+.m-hero {{
+    padding: 3rem 1rem 1.6rem 1rem; text-align: center;
+    position: relative;
+}}
 .m-hero img {{ margin: 0 auto; }}
 .m-hero-title {{
-    font-size: 2rem; font-weight: 700; letter-spacing: -0.04em;
-    color: {C["text_1"]}; margin: 0.6rem 0 0 0; line-height: 1.15;
+    font-size: 2.4rem; font-weight: 700; letter-spacing: -0.04em;
+    color: {C["text_1"]}; margin: 0.7rem 0 0 0; line-height: 1.1;
 }}
-.m-hero-accent {{ color: {C["accent"]}; }}
+.m-hero-accent {{
+    color: {C["accent"]};
+    background: linear-gradient(135deg, {C["accent"]}, {C["agent_c"]});
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}}
 .m-hero-sub {{
-    font-size: 0.9rem; color: {C["text_3"]}; max-width: 520px;
-    margin: 0.6rem auto 0 auto; line-height: 1.6;
+    font-size: 0.95rem; color: {C["text_3"]}; max-width: 560px;
+    margin: 0.7rem auto 0 auto; line-height: 1.6;
+}}
+.m-hero-meta {{
+    display: inline-flex; gap: 8px;
+    margin-top: 14px; flex-wrap: wrap; justify-content: center;
+}}
+.m-tag {{
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 500;
+    padding: 4px 10px; border-radius: 999px;
+    background: {C["bg_surface"]}; border: 1px solid {C["border"]};
+    color: {C["text_2"]};
+}}
+.m-tag-dot {{
+    width: 6px; height: 6px; border-radius: 50%; display: inline-block;
 }}
 
 /* === Features === */
-.m-features {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 2rem 0; }}
+.m-features {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 2rem 0 0.6rem 0; }}
 .m-feat {{
     background: {C["bg_surface"]}; border: 1px solid {C["border"]};
-    border-radius: 12px; padding: 20px 18px;
-    transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+    border-radius: 14px; padding: 22px 20px;
+    transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s;
+    position: relative; overflow: hidden;
+}}
+.m-feat::before {{
+    content: ""; position: absolute; top: 0; left: 0; right: 0;
+    height: 1px; background: linear-gradient(90deg, transparent, {C["accent"]}55, transparent);
+    opacity: 0; transition: opacity 0.2s;
 }}
 .m-feat:hover {{
     border-color: {C["accent"]}40; transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    box-shadow: 0 6px 24px rgba(0,0,0,0.32);
 }}
-.m-feat-bar {{ width: 24px; height: 3px; border-radius: 2px; margin-bottom: 12px; }}
-.m-feat-title {{ font-size: 13px; font-weight: 600; color: {C["text_1"]}; margin-bottom: 4px; }}
-.m-feat-desc {{ font-size: 12px; color: {C["text_3"]}; line-height: 1.55; }}
+.m-feat:hover::before {{ opacity: 1; }}
+.m-feat-bar {{ width: 26px; height: 3px; border-radius: 2px; margin-bottom: 14px; }}
+.m-feat-title {{ font-size: 13.5px; font-weight: 600; color: {C["text_1"]}; margin-bottom: 5px; }}
+.m-feat-desc {{ font-size: 12px; color: {C["text_3"]}; line-height: 1.6; }}
+
+@media (max-width: 720px) {{
+    .m-features {{ grid-template-columns: 1fr; }}
+    .m-hero-title {{ font-size: 1.85rem; }}
+}}
 
 /* === Flow === */
 .m-flow {{
     background: {C["bg_surface"]}; border: 1px solid {C["border"]};
-    border-radius: 12px; padding: 24px; margin: 1.5rem 0;
+    border-radius: 14px; padding: 22px 24px; margin: 1.4rem 0;
 }}
 .m-flow-label {{
     font-size: 9px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.1em; color: {C["text_4"]}; margin-bottom: 16px;
+    letter-spacing: 0.12em; color: {C["text_4"]}; margin-bottom: 14px;
 }}
 .m-flow-step {{ display: flex; align-items: center; gap: 12px; padding: 6px 0; }}
 .m-flow-num {{
-    width: 28px; height: 28px; border-radius: 7px;
+    width: 28px; height: 28px; border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
     font-weight: 700; font-size: 11px; flex-shrink: 0;
 }}
@@ -569,19 +761,19 @@ section[data-testid="stSidebar"] a[data-testid="stSidebarNavLink"][aria-current=
 /* === Result Row === */
 .m-result-row {{
     display: flex; align-items: center; gap: 10px;
-    padding: 7px 12px; background: {C["bg_surface"]};
+    padding: 8px 12px; background: {C["bg_surface"]};
     border-radius: 8px; margin: 4px 0; border: 1px solid {C["border"]};
     font-size: 13px; transition: border-color 0.15s;
 }}
 .m-result-row:hover {{ border-color: {C["border_light"]}; }}
 .m-rr-q {{ flex: 1; color: {C["text_2"]}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-.m-rr-badge {{ font-size: 10px; font-weight: 500; padding: 1px 6px; border-radius: 4px; }}
+.m-rr-badge {{ font-size: 10px; font-weight: 500; padding: 1px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.04em; }}
 .m-rr-time {{ font-size: 10px; color: {C["text_3"]}; font-variant-numeric: tabular-nums; }}
 
 /* === Empty === */
 .m-empty {{
     text-align: center; padding: 48px 16px;
-    background: {C["bg_surface"]}; border: 1px solid {C["border"]}; border-radius: 12px;
+    background: {C["bg_surface"]}; border: 1px dashed {C["border_light"]}; border-radius: 14px;
 }}
 .m-empty-title {{ font-size: 14px; font-weight: 500; color: {C["text_1"]}; margin-bottom: 4px; }}
 .m-empty-sub {{ font-size: 13px; color: {C["text_3"]}; }}
@@ -589,31 +781,38 @@ section[data-testid="stSidebar"] a[data-testid="stSidebarNavLink"][aria-current=
 /* === Inputs === */
 .stTextArea textarea {{
     background: {C["bg_surface"]}; border: 1px solid {C["border"]};
-    border-radius: 10px; font-size: 14px; font-family: 'Inter', sans-serif;
-    padding: 12px 14px; color: {C["text_1"]}; transition: border-color 0.15s;
+    border-radius: 12px; font-size: 14px; font-family: 'Inter', sans-serif;
+    padding: 13px 15px; color: {C["text_1"]}; transition: border-color 0.15s;
 }}
 .stTextArea textarea:focus {{
-    border-color: {C["accent"]}; box-shadow: 0 0 0 2px {C["accent"]}18;
+    border-color: {C["accent"]}; box-shadow: 0 0 0 2px {C["accent"]}1F;
+    outline: none;
 }}
 .stTextArea textarea::placeholder {{ color: {C["text_4"]}; }}
 
 /* === Buttons === */
 div.stButton > button[kind="primary"] {{
     background: {C["accent"]}; color: #fff; border: none;
-    border-radius: 8px; font-weight: 500; font-size: 13px;
-    padding: 8px 18px; transition: all 0.15s;
+    border-radius: 10px; font-weight: 600; font-size: 13px;
+    padding: 9px 18px; transition: all 0.15s;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset;
 }}
 div.stButton > button[kind="primary"]:hover {{
-    background: {C["accent_hover"]}; box-shadow: 0 2px 12px {C["accent"]}35;
+    background: {C["accent_hover"]}; box-shadow: 0 4px 16px {C["accent"]}40;
     transform: translateY(-1px);
 }}
+div.stButton > button[kind="primary"]:active {{
+    transform: translateY(0); box-shadow: 0 1px 4px {C["accent"]}40;
+}}
 div.stButton > button {{
-    border-radius: 8px; border: 1px solid {C["border"]};
+    border-radius: 10px; border: 1px solid {C["border"]};
     font-weight: 500; font-size: 13px; color: {C["text_2"]};
+    background: {C["bg_surface"]};
     transition: all 0.15s;
 }}
 div.stButton > button:hover {{
     border-color: {C["accent"]}50; color: {C["text_1"]}; transform: translateY(-1px);
+    background: {C["bg_elevated"]};
 }}
 
 /* === Expander === */
@@ -622,8 +821,18 @@ div.stButton > button:hover {{
     font-weight: 500; font-size: 13px; color: {C["text_2"]};
 }}
 
+/* === Status (st.status) === */
+div[data-testid="stStatusWidget"] {{
+    background: {C["bg_surface"]}; border: 1px solid {C["border"]};
+    border-radius: 10px;
+}}
+
 /* === Progress === */
-.stProgress > div > div {{ background: {C["accent"]}; border-radius: 8px; }}
+.stProgress > div > div {{
+    background: linear-gradient(90deg, {C["accent"]}, {C["agent_c"]});
+    border-radius: 8px;
+}}
+.stProgress > div {{ background: {C["bg_input"]}; border-radius: 8px; }}
 
 /* === Tabs === */
 .stTabs [data-baseweb="tab-list"] {{
@@ -637,19 +846,27 @@ div.stButton > button:hover {{
 .stTabs [data-baseweb="tab-highlight"] {{ background-color: {C["accent"]} !important; }}
 
 /* === Scrollbar === */
-::-webkit-scrollbar {{ width: 5px; }}
+::-webkit-scrollbar {{ width: 6px; height: 6px; }}
 ::-webkit-scrollbar-track {{ background: transparent; }}
 ::-webkit-scrollbar-thumb {{ background: {C["border"]}; border-radius: 3px; }}
+::-webkit-scrollbar-thumb:hover {{ background: {C["border_light"]}; }}
 
 /* === Download === */
 .stDownloadButton > button {{
-    border-radius: 8px; border: 1px solid {C["border"]};
+    border-radius: 10px; border: 1px solid {C["border"]};
     font-weight: 500; font-size: 13px; color: {C["text_2"]};
+    background: {C["bg_surface"]};
 }}
 .stDownloadButton > button:hover {{ border-color: {C["accent"]}50; color: {C["text_1"]}; }}
 
 /* === Dataframe === */
 .stDataFrame {{ border-radius: 10px; overflow: hidden; }}
 .stSlider [data-testid="stThumbValue"] {{ color: {C["accent"]}; }}
+
+/* === Toast === */
+div[data-testid="stToast"] {{
+    background: {C["bg_elevated"]}; border: 1px solid {C["border_light"]};
+    border-radius: 10px;
+}}
 </style>
 """

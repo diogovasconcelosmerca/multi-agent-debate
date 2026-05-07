@@ -18,26 +18,72 @@ OUTPUTS_DIR = DATA_DIR / "outputs"
 RESULTS_DIR = DATA_DIR / "results"
 
 # ---------------------------------------------------------------------------
+# Generation
+# ---------------------------------------------------------------------------
+DEFAULT_TEMPERATURE = 0.7
+# A multi-agent debate is 4 LLM calls per round; small local models on a
+# laptop CPU can take 60-90s each. 300s gives them room without hanging the
+# UI forever on a stuck request.
+GENERATE_TIMEOUT = 300  # seconds per LLM call
+
+
+# ---------------------------------------------------------------------------
+# Secret loading (Streamlit Cloud secrets first, then env vars)
+# ---------------------------------------------------------------------------
+def _load_secret(name: str) -> str:
+    try:
+        import streamlit as st
+        val = st.secrets.get(name, None)
+        if val:
+            return val
+    except Exception:
+        pass
+    return os.environ.get(name, "")
+
+
+# ---------------------------------------------------------------------------
 # Ollama (local backend)
 # ---------------------------------------------------------------------------
-OLLAMA_BASE_URL = "http://localhost:11434"
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 DEFAULT_MODEL = "llama3.2"
-DEFAULT_TEMPERATURE = 0.7
-GENERATE_TIMEOUT = 120  # seconds per LLM call
+# Smaller fallback that runs comfortably on CPU-only laptops.
+OLLAMA_FAST_MODEL = "llama3.2:1b"
 
 # ---------------------------------------------------------------------------
 # Groq (cloud backend — free tier)
 # ---------------------------------------------------------------------------
-# Check Streamlit secrets first (for Streamlit Cloud), then env vars
-def _get_groq_key() -> str:
-    try:
-        import streamlit as st
-        return st.secrets.get("GROQ_API_KEY", os.environ.get("GROQ_API_KEY", ""))
-    except Exception:
-        return os.environ.get("GROQ_API_KEY", "")
-
-GROQ_API_KEY = _get_groq_key()
+GROQ_API_KEY = _load_secret("GROQ_API_KEY")
 GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile"
+
+# ---------------------------------------------------------------------------
+# Gemini (cloud backend — generous free tier)
+# ---------------------------------------------------------------------------
+GEMINI_API_KEY = _load_secret("GEMINI_API_KEY")
+GEMINI_DEFAULT_MODEL = "gemini-2.0-flash"
+
+# ---------------------------------------------------------------------------
+# Backend metadata (used by the sidebar UI)
+# ---------------------------------------------------------------------------
+BACKENDS = {
+    "ollama": {
+        "id": "ollama",
+        "label": "Ollama",
+        "tagline": "Local · Offline · Free",
+        "help": "Runs on your machine via `ollama serve`. No API key required.",
+    },
+    "groq": {
+        "id": "groq",
+        "label": "Groq",
+        "tagline": "Cloud · Fast · Free tier",
+        "help": "Sub-second 70B inference. Get a key at console.groq.com.",
+    },
+    "gemini": {
+        "id": "gemini",
+        "label": "Gemini",
+        "tagline": "Cloud · Generous free tier",
+        "help": "Google AI Studio. Get a key at aistudio.google.com/app/apikey.",
+    },
+}
 
 # ---------------------------------------------------------------------------
 # Debate
