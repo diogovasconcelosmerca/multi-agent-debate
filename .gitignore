@@ -13,6 +13,14 @@ build/
 # Experiment data (generated at runtime)
 data/outputs/*.json
 data/results/*.csv
+data/logs/
+
+# Pytest / coverage / type-check caches
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 
 # Streamlit secrets (NEVER commit)
 .streamlit/secrets.toml

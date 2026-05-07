@@ -15,6 +15,7 @@ from core.baseline_engine import run_baseline
 from core.debate_engine import run_debate
 from core.evaluator import compare_responses
 from core.llm_client import LlmConnectionError
+from core.sidebar import render_sidebar
 from core.storage import save_result
 from core.theme import (
     C,
@@ -26,13 +27,13 @@ from core.theme import (
     radar_chart_html,
     section_header,
     step_indicator,
-    typing_indicator,
     winner_banner,
 )
 from core.utils import format_timestamp, generate_experiment_id
 
-st.set_page_config(page_title="MADS -- Chat", page_icon=favicon_uri(), layout="wide")
+st.set_page_config(page_title="MADS — Chat", page_icon=favicon_uri(), layout="wide")
 inject_premium_css()
+render_sidebar()
 
 
 def _s(key, default):
@@ -200,7 +201,7 @@ if baseline_result or debate_result:
                 baseline_result["elapsed_seconds"],
             )
         else:
-            st.markdown(f'''
+            st.markdown('''
             <div class="m-empty">
                 <div class="m-empty-title">Baseline not run</div>
                 <div class="m-empty-sub">Click "Run Both" or "Baseline Only" to generate.</div>
@@ -216,7 +217,7 @@ if baseline_result or debate_result:
                 chat_message("Agent A", "Revision", rd["revision"], rd["revision_time"])
             chat_message("Agent C", "Final Judgment", debate_result["judgment"], debate_result["judgment_time"])
         else:
-            st.markdown(f'''
+            st.markdown('''
             <div class="m-empty">
                 <div class="m-empty-title">Debate not run</div>
                 <div class="m-empty-sub">Click "Run Both" or "Debate Only" to generate.</div>

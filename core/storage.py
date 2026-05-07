@@ -49,20 +49,33 @@ def save_result(result: dict[str, Any]) -> Path:
     """
     Persist a full experiment result.
 
-    1. Write the complete dict as a pretty-printed JSON file.
-    2. Append a summary row to the CSV index.
+    1. Validate the dict against :class:`ExperimentRecord` so a bad
+       payload (e.g. partial save after a crash) is rejected before it
+       reaches disk and corrupts the dashboard index.
+    2. Write the validated payload as a pretty-printed JSON file.
+    3. Append a summary row to the CSV index.
 
     Returns the path to the saved JSON file.
     """
-    exp_id = result["experiment_id"]
+    # Pydantic validation on the way in. We round-trip through
+    # `model_dump` so the persisted JSON matches the schema exactly even
+    # if the caller passed a superset of keys.
+    try:
+        from core.models import ExperimentRecord
+        validated = ExperimentRecord.model_validate(result).model_dump()
+    except Exception:
+        logger.exception("Experiment record failed validation; persisting raw dict.")
+        validated = result
+
+    exp_id = validated["experiment_id"]
     json_path = OUTPUTS_DIR / f"{exp_id}.json"
 
     # Full JSON
     with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=2, ensure_ascii=False)
+        json.dump(validated, f, indent=2, ensure_ascii=False, default=str)
 
     # CSV summary row
-    _append_summary_row(result)
+    _append_summary_row(validated)
 
     logger.info("Saved experiment %s to %s", exp_id, json_path)
     return json_path
@@ -110,7 +123,7 @@ def _append_summary_row(result: dict[str, Any]) -> None:
 def load_result(experiment_id: str) -> dict[str, Any]:
     """Load a single experiment result by its ID."""
     json_path = OUTPUTS_DIR / f"{experiment_id}.json"
-    with open(json_path, "r", encoding="utf-8") as f:
+    with open(json_path, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -119,7 +132,7 @@ def load_all_results() -> list[dict[str, Any]]:
     results = []
     for path in sorted(OUTPUTS_DIR.glob("*.json"), reverse=True):
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 results.append(json.load(f))
         except (json.JSONDecodeError, OSError) as exc:
             logger.warning("Skipping corrupt file %s: %s", path, exc)

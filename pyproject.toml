@@ -1,0 +1,85 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mads"
+version = "2.2.0"
+description = "Multi-Agent Debate System — comparing single-agent vs propose/critique/revise/judge LLM pipelines."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Diogo Vasconcelos" }]
+dependencies = [
+    "streamlit>=1.30.0",
+    "requests>=2.31.0",
+    "pandas>=2.1.0",
+    "plotly>=5.18.0",
+    "pydantic>=2.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "playwright>=1.45",
+]
+
+# ---------------------------------------------------------------------------
+# Ruff — fast lint + format
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["venv", "data", "docs/assets"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",   # pycodestyle / pyflakes
+    "I",             # isort
+    "B",             # flake8-bugbear
+    "UP",            # pyupgrade
+    "RUF",           # ruff-specific
+]
+ignore = [
+    "E501",   # line length (handled by formatter)
+    "B008",   # function default args (Streamlit components rely on this)
+    "RUF012", # mutable class attrs (Pydantic models are fine)
+    "RUF002", # en-dash / em-dash in docstrings is intentional
+    "RUF003", # likewise in comments
+    "RUF005", # `[a] + b` is fine for short lists
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+# Streamlit entry scripts adjust sys.path before importing project modules.
+"evals/*" = ["E402"]
+"scripts/*" = ["E402"]
+"Home.py" = ["E402"]
+"pages/*" = ["E402"]
+
+# ---------------------------------------------------------------------------
+# Mypy — type checking
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+strict_optional = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+ignore_missing_imports = true
+files = ["core", "Home.py", "pages"]
+exclude = "venv|data|docs"
+
+[[tool.mypy.overrides]]
+module = "streamlit.*"
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+filterwarnings = ["ignore::DeprecationWarning"]

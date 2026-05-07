@@ -2,10 +2,14 @@
 Response evaluation module.
 
 Two evaluation strategies are combined:
-  1. LLM-as-judge  — the same Ollama model scores responses 1-5 on four
+  1. LLM-as-judge  — the same model scores responses 1–5 on four
                      dimensions (coherence, reasoning depth, completeness, clarity).
+                     Output is run through :class:`LlmScores` so a hallucinated
+                     value (e.g. ``"high"``, ``7``, missing key) cannot reach
+                     the storage layer.
   2. Heuristic     — simple Python-based metrics (word count, response length,
-                     unique concept count).
+                     unique concept count). Validated through
+                     :class:`Heuristics` for the same reason.
 
 The scores from both strategies are returned together so the UI and
 dashboard can display them side by side.
@@ -15,7 +19,10 @@ from __future__ import annotations
 
 import logging
 
+from pydantic import ValidationError
+
 from core.config import EVALUATION_DIMENSIONS, EVALUATION_TEMPERATURE
+from core.models import Heuristics, LlmScores
 from core.ollama_client import OllamaClient
 from core.prompts import EVALUATOR_SYSTEM, build_evaluation_prompt
 from core.utils import count_unique_concepts, word_count
@@ -24,16 +31,32 @@ logger = logging.getLogger(__name__)
 
 
 def _default_scores() -> dict[str, int]:
-    """Neutral scores used as fallback when LLM evaluation fails."""
+    """Neutral fallback scores when LLM evaluation fails or hallucinates."""
     return {dim: 3 for dim in EVALUATION_DIMENSIONS}
 
 
-def _clamp(value, lo: int = 1, hi: int = 5) -> int:
-    """Ensure a score is an integer within [lo, hi]."""
+def _coerce_int(value: object) -> int:
+    """Best-effort coercion of LLM output to an int; falls back to 3."""
     try:
-        return max(lo, min(hi, int(value)))
+        return int(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return 3
+
+
+def _validate_scores(raw: dict) -> dict[str, int]:
+    """
+    Run the LLM's JSON output through ``LlmScores`` to enforce 1–5 bounds
+    and the canonical key set, returning a plain dict the UI expects.
+    """
+    coerced = {dim: _coerce_int(raw.get(dim, 3)) for dim in EVALUATION_DIMENSIONS}
+    # Clamp before validation so a 0 or 7 doesn't blow up — Pydantic would
+    # reject anything outside [1, 5], but we'd rather degrade than fail.
+    coerced = {k: max(1, min(5, v)) for k, v in coerced.items()}
+    try:
+        return LlmScores.model_validate(coerced).as_dict()
+    except ValidationError as exc:
+        logger.warning("LLM scores failed validation: %s", exc)
+        return _default_scores()
 
 
 def evaluate_response(
@@ -61,27 +84,25 @@ def evaluate_response(
             model=model,
             system=EVALUATOR_SYSTEM,
             temperature=EVALUATION_TEMPERATURE,
+            role="evaluator",
         )
         if "_error" in raw:
             logger.warning("LLM evaluation returned invalid JSON; using defaults.")
-            llm_scores = _default_scores()
+            llm_scores: dict[str, int] = _default_scores()
         else:
-            llm_scores = {
-                dim: _clamp(raw.get(dim, 3))
-                for dim in EVALUATION_DIMENSIONS
-            }
+            llm_scores = _validate_scores(raw)
     except Exception:
         logger.exception("LLM evaluation failed; using default scores.")
         llm_scores = _default_scores()
 
     # --- Heuristic metrics ----------------------------------------------
-    heuristics = {
-        "word_count": word_count(response),
-        "response_length": len(response),
-        "unique_concepts": count_unique_concepts(response),
-    }
+    heuristics = Heuristics(
+        word_count=word_count(response),
+        response_length=len(response),
+        unique_concepts=count_unique_concepts(response),
+    )
 
-    return {"llm_scores": llm_scores, "heuristics": heuristics}
+    return {"llm_scores": llm_scores, "heuristics": heuristics.model_dump()}
 
 
 def compare_responses(

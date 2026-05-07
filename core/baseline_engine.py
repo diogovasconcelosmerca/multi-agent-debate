@@ -40,6 +40,7 @@ def run_baseline(
             model=model,
             system=PROPONENT_SYSTEM,
             temperature=temperature,
+            role="baseline",
         )
 
     return {

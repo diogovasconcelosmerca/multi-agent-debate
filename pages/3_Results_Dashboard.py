@@ -15,6 +15,7 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 from core.config import EVALUATION_DIMENSIONS
+from core.sidebar import render_sidebar
 from core.storage import load_summary_df
 from core.theme import (
     C,
@@ -26,8 +27,9 @@ from core.theme import (
     section_header,
 )
 
-st.set_page_config(page_title="MADS -- Dashboard", page_icon=favicon_uri(), layout="wide")
+st.set_page_config(page_title="MADS — Dashboard", page_icon=favicon_uri(), layout="wide")
 inject_premium_css()
+render_sidebar()
 
 PL = dict(
     paper_bgcolor="rgba(0,0,0,0)",
@@ -51,7 +53,7 @@ page_header(
 df = load_summary_df()
 
 if df.empty:
-    st.markdown(f'''
+    st.markdown('''
     <div class="m-empty">
         <div class="m-empty-title">No experiments yet</div>
         <div class="m-empty-sub">Run experiments first, then return here.</div>

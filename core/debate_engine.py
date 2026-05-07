@@ -15,7 +15,7 @@ The engine is UI-agnostic.  An optional `on_step` callback lets callers
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from core.ollama_client import OllamaClient
 from core.prompts import (
@@ -91,6 +91,7 @@ def run_debate(
                     model=model,
                     system=PROPONENT_SYSTEM,
                     temperature=temperature,
+                    role="proponent",
                 )
             round_data["proposal"] = proposal
             round_data["proposal_time"] = round(t.elapsed, 2)
@@ -103,6 +104,7 @@ def run_debate(
                     model=model,
                     system=CRITIC_SYSTEM,
                     temperature=temperature,
+                    role="critic",
                 )
             round_data["critique"] = critique
             round_data["critique_time"] = round(t.elapsed, 2)
@@ -115,6 +117,7 @@ def run_debate(
                     model=model,
                     system=PROPONENT_SYSTEM,
                     temperature=temperature,
+                    role="proponent_revision",
                 )
             round_data["revision"] = revision
             round_data["revision_time"] = round(t.elapsed, 2)
@@ -136,6 +139,7 @@ def run_debate(
                 model=model,
                 system=JUDGE_SYSTEM,
                 temperature=temperature,
+                role="judge",
             )
         result["judgment"] = judgment
         result["judgment_time"] = round(t.elapsed, 2)

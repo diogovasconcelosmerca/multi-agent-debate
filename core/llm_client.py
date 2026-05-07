@@ -20,6 +20,7 @@ from typing import Any
 import requests
 
 from core.config import GENERATE_TIMEOUT, OLLAMA_BASE_URL
+from core.telemetry import record_llm_call
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,7 @@ class OllamaClient:
         system: str = "",
         temperature: float = 0.7,
         timeout: int = GENERATE_TIMEOUT,
+        role: str = "agent",
     ) -> str:
         payload: dict[str, Any] = {
             "model": model,
@@ -81,24 +83,30 @@ class OllamaClient:
         if system:
             payload["system"] = system
 
-        try:
-            resp = self._session.post(
-                f"{self.base_url}/api/generate",
-                json=payload,
-                timeout=timeout,
-            )
-            resp.raise_for_status()
-            return resp.json()["response"]
-        except requests.ConnectionError as exc:
-            raise LlmConnectionError(
-                "Cannot reach Ollama at "
-                f"{self.base_url}. Run `ollama serve` and try again."
-            ) from exc
-        except requests.Timeout as exc:
-            raise LlmConnectionError(
-                f"Ollama timed out after {timeout}s. Try a smaller model "
-                "(e.g. `ollama pull llama3.2:1b`) or fewer debate rounds."
-            ) from exc
+        prompt_chars = len(prompt) + len(system)
+        with record_llm_call("ollama", model, role, prompt_chars) as ctx:
+            try:
+                resp = self._session.post(
+                    f"{self.base_url}/api/generate",
+                    json=payload,
+                    timeout=timeout,
+                )
+                resp.raise_for_status()
+                text = resp.json()["response"]
+                ctx["response"] = text
+                return text
+            except requests.ConnectionError as exc:
+                ctx["status"] = "error"
+                raise LlmConnectionError(
+                    "Cannot reach Ollama at "
+                    f"{self.base_url}. Run `ollama serve` and try again."
+                ) from exc
+            except requests.Timeout as exc:
+                ctx["status"] = "timeout"
+                raise LlmConnectionError(
+                    f"Ollama timed out after {timeout}s. Try a smaller model "
+                    "(e.g. `ollama pull llama3.2:1b`) or fewer debate rounds."
+                ) from exc
 
     def generate_json(
         self,
@@ -107,11 +115,12 @@ class OllamaClient:
         system: str = "",
         temperature: float = 0.2,
         timeout: int = GENERATE_TIMEOUT,
+        role: str = "evaluator",
     ) -> dict:
         full_prompt = prompt + "\n\nReturn ONLY valid JSON. No extra text."
         raw = self.generate(
             prompt=full_prompt, model=model, system=system,
-            temperature=temperature, timeout=timeout,
+            temperature=temperature, timeout=timeout, role=role,
         )
         return _parse_json(raw)
 
@@ -174,6 +183,7 @@ class GroqClient:
         system: str = "",
         temperature: float = 0.7,
         timeout: int = GENERATE_TIMEOUT,
+        role: str = "agent",
     ) -> str:
         messages = []
         if system:
@@ -187,42 +197,49 @@ class GroqClient:
             "max_tokens": 4096,
         }
 
-        try:
-            resp = self._session.post(
-                GROQ_API_URL,
-                json=payload,
-                timeout=timeout,
-            )
-            resp.raise_for_status()
-            return resp.json()["choices"][0]["message"]["content"]
-        except requests.ConnectionError as exc:
-            raise LlmConnectionError(
-                "Cannot connect to Groq API. Check your internet connection."
-            ) from exc
-        except requests.Timeout as exc:
-            raise LlmConnectionError(
-                f"Groq request timed out after {timeout}s."
-            ) from exc
-        except requests.HTTPError as exc:
-            status = getattr(exc.response, "status_code", "?")
-            body = getattr(exc.response, "text", "")[:200]
-            if status == 401:
+        prompt_chars = len(prompt) + len(system)
+        with record_llm_call("groq", model, role, prompt_chars) as ctx:
+            try:
+                resp = self._session.post(
+                    GROQ_API_URL,
+                    json=payload,
+                    timeout=timeout,
+                )
+                resp.raise_for_status()
+                text = resp.json()["choices"][0]["message"]["content"]
+                ctx["response"] = text
+                return text
+            except requests.ConnectionError as exc:
+                ctx["status"] = "error"
                 raise LlmConnectionError(
-                    "Invalid Groq API key. Get one free at console.groq.com."
+                    "Cannot connect to Groq API. Check your internet connection."
                 ) from exc
-            if status == 429:
+            except requests.Timeout as exc:
+                ctx["status"] = "timeout"
                 raise LlmConnectionError(
-                    "Groq rate limit reached. Wait a moment, switch model, "
-                    "or try the Gemini backend."
+                    f"Groq request timed out after {timeout}s."
                 ) from exc
-            if status in (402, 403):
+            except requests.HTTPError as exc:
+                ctx["status"] = "error"
+                status = getattr(exc.response, "status_code", "?")
+                body = getattr(exc.response, "text", "")[:200]
+                if status == 401:
+                    raise LlmConnectionError(
+                        "Invalid Groq API key. Get one free at console.groq.com."
+                    ) from exc
+                if status == 429:
+                    raise LlmConnectionError(
+                        "Groq rate limit reached. Wait a moment, switch model, "
+                        "or try the Gemini backend."
+                    ) from exc
+                if status in (402, 403):
+                    raise LlmConnectionError(
+                        "Groq quota exhausted on this key. Try the Gemini "
+                        "backend or a local Ollama model."
+                    ) from exc
                 raise LlmConnectionError(
-                    "Groq quota exhausted on this key. Try the Gemini "
-                    "backend or a local Ollama model."
+                    f"Groq API error ({status}): {body}"
                 ) from exc
-            raise LlmConnectionError(
-                f"Groq API error ({status}): {body}"
-            ) from exc
 
     def generate_json(
         self,
@@ -231,11 +248,12 @@ class GroqClient:
         system: str = "",
         temperature: float = 0.2,
         timeout: int = GENERATE_TIMEOUT,
+        role: str = "evaluator",
     ) -> dict:
         full_prompt = prompt + "\n\nReturn ONLY valid JSON. No extra text."
         raw = self.generate(
             prompt=full_prompt, model=model, system=system,
-            temperature=temperature, timeout=timeout,
+            temperature=temperature, timeout=timeout, role=role,
         )
         return _parse_json(raw)
 
@@ -315,6 +333,7 @@ class GeminiClient:
         system: str = "",
         temperature: float = 0.7,
         timeout: int = GENERATE_TIMEOUT,
+        role: str = "agent",
     ) -> str:
         # Gemini accepts a top-level systemInstruction object.
         payload: dict[str, Any] = {
@@ -328,42 +347,49 @@ class GeminiClient:
             payload["systemInstruction"] = {"parts": [{"text": system}]}
 
         url = f"{GEMINI_API_BASE}/models/{model}:generateContent"
-        try:
-            resp = self._session.post(
-                url, params=self._params(), json=payload, timeout=timeout,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            return _extract_gemini_text(data)
-        except requests.ConnectionError as exc:
-            raise LlmConnectionError(
-                "Cannot connect to Gemini API. Check your internet connection."
-            ) from exc
-        except requests.Timeout as exc:
-            raise LlmConnectionError(
-                f"Gemini request timed out after {timeout}s."
-            ) from exc
-        except requests.HTTPError as exc:
-            status = getattr(exc.response, "status_code", "?")
-            body = getattr(exc.response, "text", "")[:300]
-            if status in (400, 401, 403) and "API key" in body:
+        prompt_chars = len(prompt) + len(system)
+        with record_llm_call("gemini", model, role, prompt_chars) as ctx:
+            try:
+                resp = self._session.post(
+                    url, params=self._params(), json=payload, timeout=timeout,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                text = _extract_gemini_text(data)
+                ctx["response"] = text
+                return text
+            except requests.ConnectionError as exc:
+                ctx["status"] = "error"
                 raise LlmConnectionError(
-                    "Invalid Gemini API key. Get one free at "
-                    "aistudio.google.com/app/apikey."
+                    "Cannot connect to Gemini API. Check your internet connection."
                 ) from exc
-            if status == 429:
+            except requests.Timeout as exc:
+                ctx["status"] = "timeout"
                 raise LlmConnectionError(
-                    "Gemini rate limit reached on the free tier. "
-                    "Wait a minute or switch to a flash-lite model."
+                    f"Gemini request timed out after {timeout}s."
                 ) from exc
-            if status == 404:
+            except requests.HTTPError as exc:
+                ctx["status"] = "error"
+                status = getattr(exc.response, "status_code", "?")
+                body = getattr(exc.response, "text", "")[:300]
+                if status in (400, 401, 403) and "API key" in body:
+                    raise LlmConnectionError(
+                        "Invalid Gemini API key. Get one free at "
+                        "aistudio.google.com/app/apikey."
+                    ) from exc
+                if status == 429:
+                    raise LlmConnectionError(
+                        "Gemini rate limit reached on the free tier. "
+                        "Wait a minute or switch to a flash-lite model."
+                    ) from exc
+                if status == 404:
+                    raise LlmConnectionError(
+                        f"Gemini model `{model}` not found. Pick another from "
+                        "the model list."
+                    ) from exc
                 raise LlmConnectionError(
-                    f"Gemini model `{model}` not found. Pick another from "
-                    "the model list."
+                    f"Gemini API error ({status}): {body}"
                 ) from exc
-            raise LlmConnectionError(
-                f"Gemini API error ({status}): {body}"
-            ) from exc
 
     def generate_json(
         self,
@@ -372,11 +398,12 @@ class GeminiClient:
         system: str = "",
         temperature: float = 0.2,
         timeout: int = GENERATE_TIMEOUT,
+        role: str = "evaluator",
     ) -> dict:
         full_prompt = prompt + "\n\nReturn ONLY valid JSON. No extra text."
         raw = self.generate(
             prompt=full_prompt, model=model, system=system,
-            temperature=temperature, timeout=timeout,
+            temperature=temperature, timeout=timeout, role=role,
         )
         return _parse_json(raw)
 

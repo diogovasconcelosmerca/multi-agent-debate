@@ -7,6 +7,7 @@ Typography: Inter. No emojis.
 """
 
 import base64
+
 import streamlit as st
 
 # ---------------------------------------------------------------------------
@@ -247,7 +248,11 @@ def radar_chart_html(baseline_scores: dict, debate_scores: dict) -> str:
     import math
     dims = list(baseline_scores.keys())
     n = len(dims)
-    cx, cy, r = 120, 120, 85
+    # Wide viewBox with horizontal padding so long labels ("Reasoning
+    # Depth", "Completeness") render without clipping when the SVG is
+    # scaled to a narrow column.
+    vb_w, vb_h = 440, 300
+    cx, cy, r = vb_w / 2, 130, 88
     angles = [math.pi / 2 + 2 * math.pi * i / n for i in range(n)]
 
     def points(scores, radius):
@@ -267,40 +272,55 @@ def radar_chart_html(baseline_scores: dict, debate_scores: dict) -> str:
             x = cx + r * (level / 5) * math.cos(angles[i])
             y = cy - r * (level / 5) * math.sin(angles[i])
             ring_pts.append(f"{x:.1f},{y:.1f}")
-        grid += f'<polygon points="{" ".join(ring_pts)}" fill="none" stroke="{C["border"]}" stroke-width="0.5"/>'
+        grid += f'<polygon points="{" ".join(ring_pts)}" fill="none" stroke="{C["border"]}" stroke-width="0.6"/>'
 
     # Axis lines
     axes = ""
     for i in range(n):
         x = cx + r * math.cos(angles[i])
         y = cy - r * math.sin(angles[i])
-        axes += f'<line x1="{cx}" y1="{cy}" x2="{x:.1f}" y2="{y:.1f}" stroke="{C["border"]}" stroke-width="0.5"/>'
+        axes += f'<line x1="{cx}" y1="{cy}" x2="{x:.1f}" y2="{y:.1f}" stroke="{C["border"]}" stroke-width="0.6"/>'
 
-    # Labels
+    # Labels — use short forms so they fit narrow columns without clipping
+    short = {
+        "coherence": "Coherence",
+        "reasoning_depth": "Reasoning",
+        "completeness": "Completeness",
+        "clarity": "Clarity",
+    }
     labels = ""
     for i, dim in enumerate(dims):
-        label = dim.replace("_", " ").title()
-        lx = cx + (r + 18) * math.cos(angles[i])
-        ly = cy - (r + 18) * math.sin(angles[i])
+        label = short.get(dim, dim.replace("_", " ").title())
+        lx = cx + (r + 20) * math.cos(angles[i])
+        ly = cy - (r + 20) * math.sin(angles[i])
         anchor = "middle"
-        if lx < cx - 10: anchor = "end"
-        elif lx > cx + 10: anchor = "start"
-        labels += f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="{anchor}" dominant-baseline="middle" fill="{C["text_3"]}" font-size="9" font-family="Inter">{label}</text>'
+        if lx < cx - 12:
+            anchor = "end"
+        elif lx > cx + 12:
+            anchor = "start"
+        labels += (
+            f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="{anchor}" '
+            f'dominant-baseline="middle" fill="{C["text_2"]}" font-size="10.5" '
+            f'font-family="Inter" font-weight="500">{label}</text>'
+        )
 
     b_pts = points(baseline_scores, r)
     d_pts = points(debate_scores, r)
 
+    legend_y = vb_h - 22
+    legend_x_base = cx - 70
+
     return f'''
-    <svg viewBox="0 0 240 260" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:320px;display:block;margin:0 auto;">
+    <svg viewBox="0 0 {vb_w} {vb_h}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:440px;display:block;margin:0 auto;" overflow="visible">
         {grid}{axes}
-        <polygon points="{b_pts}" fill="{C["accent"]}15" stroke="{C["accent"]}" stroke-width="1.5" opacity="0.7"/>
-        <polygon points="{d_pts}" fill="{C["agent_c"]}15" stroke="{C["agent_c"]}" stroke-width="1.5" opacity="0.7"/>
+        <polygon points="{b_pts}" fill="{C["accent"]}1F" stroke="{C["accent"]}" stroke-width="1.6" opacity="0.85"/>
+        <polygon points="{d_pts}" fill="{C["agent_c"]}1F" stroke="{C["agent_c"]}" stroke-width="1.6" opacity="0.85"/>
         {labels}
-        <g transform="translate(50, 245)">
-            <rect width="8" height="8" rx="2" fill="{C["accent"]}" opacity="0.7"/>
-            <text x="12" y="8" fill="{C["text_3"]}" font-size="9" font-family="Inter">Baseline</text>
-            <rect x="70" width="8" height="8" rx="2" fill="{C["agent_c"]}" opacity="0.7"/>
-            <text x="82" y="8" fill="{C["text_3"]}" font-size="9" font-family="Inter">Debate</text>
+        <g transform="translate({legend_x_base}, {legend_y})">
+            <rect width="9" height="9" rx="2" fill="{C["accent"]}" opacity="0.85"/>
+            <text x="14" y="9" fill="{C["text_2"]}" font-size="10" font-family="Inter">Baseline</text>
+            <rect x="76" width="9" height="9" rx="2" fill="{C["agent_c"]}" opacity="0.85"/>
+            <text x="90" y="9" fill="{C["text_2"]}" font-size="10" font-family="Inter">Debate</text>
         </g>
     </svg>
     '''
@@ -382,25 +402,41 @@ section[data-testid="stSidebar"] .stTextInput > div > div > input:hover {{
 section[data-testid="stSidebar"] .stTextInput > div > div > input:focus {{
     border-color: {C["accent"]}; box-shadow: 0 0 0 2px {C["accent"]}22;
 }}
+/* Backend selector — vertical stacked buttons, no labels truncated */
 section[data-testid="stSidebar"] .stRadio > div {{
-    background: {C["bg_input"]};
-    border: 1px solid {C["border"]};
-    border-radius: 8px;
-    padding: 3px;
-    gap: 0;
+    flex-direction: column !important;
+    gap: 4px !important;
+    background: transparent;
+    border: 0;
+    padding: 0;
 }}
 section[data-testid="stSidebar"] .stRadio > div > label {{
-    flex: 1; text-align: center; padding: 6px 4px;
-    border-radius: 6px; cursor: pointer;
-    font-size: 11px !important; font-weight: 500 !important;
+    width: 100%;
+    display: flex !important; align-items: center !important;
+    padding: 9px 12px;
+    background: {C["bg_input"]};
+    border: 1px solid {C["border"]};
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 12.5px !important; font-weight: 500 !important;
     color: {C["text_2"]} !important; text-transform: none !important;
     letter-spacing: 0 !important; transition: all 0.15s;
+    white-space: nowrap;
+}}
+section[data-testid="stSidebar"] .stRadio > div > label:hover {{
+    border-color: {C["border_light"]};
+    color: {C["text_1"]} !important;
+    background: {C["bg_elevated"]};
 }}
 section[data-testid="stSidebar"] .stRadio > div > label:has(input:checked) {{
-    background: {C["accent"]}; color: #fff !important;
+    background: {C["accent"]}1A;
+    border-color: {C["accent"]};
+    color: {C["accent"]} !important;
+    box-shadow: 0 0 0 1px {C["accent"]}33 inset;
 }}
+/* Hide the native radio dot — we use the whole row as the button */
 section[data-testid="stSidebar"] .stRadio > div > label > div:first-child {{
-    display: none;  /* hide the radio dot, our segmented control style */
+    display: none;
 }}
 
 /* Sidebar nav links */
@@ -435,6 +471,11 @@ section[data-testid="stSidebar"] a[data-testid="stSidebarNavLink"][aria-current=
     font-size: 9px; font-weight: 600; text-transform: uppercase;
     letter-spacing: 0.1em; color: {C["text_3"]};
     margin: 14px 0 6px 0;
+}}
+.m-sb-tagline {{
+    font-size: 10.5px; color: {C["text_3"]};
+    margin: 6px 2px 0 2px; line-height: 1.4;
+    letter-spacing: 0.01em;
 }}
 .m-sb-hint {{
     font-size: 10.5px; color: {C["text_3"]};
@@ -664,28 +705,40 @@ section[data-testid="stSidebar"] a[data-testid="stSidebarNavLink"][aria-current=
 
 /* === Hero === */
 .m-hero {{
-    padding: 3rem 1rem 1.6rem 1rem; text-align: center;
+    padding: 3.2rem 1rem 1.4rem 1rem; text-align: center;
     position: relative;
 }}
 .m-hero img {{ margin: 0 auto; }}
+.m-hero-eyebrow {{
+    margin-top: 18px;
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.22em;
+    color: {C["text_3"]};
+}}
 .m-hero-title {{
-    font-size: 2.4rem; font-weight: 700; letter-spacing: -0.04em;
-    color: {C["text_1"]}; margin: 0.7rem 0 0 0; line-height: 1.1;
+    font-size: 2.6rem; font-weight: 700; letter-spacing: -0.04em;
+    color: {C["text_1"]}; margin: 0.5rem 0 0 0; line-height: 1.08;
 }}
 .m-hero-accent {{
     color: {C["accent"]};
-    background: linear-gradient(135deg, {C["accent"]}, {C["agent_c"]});
+    background: linear-gradient(135deg, {C["accent"]} 0%, {C["agent_c"]} 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    font-style: italic;
+    font-weight: 700;
 }}
 .m-hero-sub {{
-    font-size: 0.95rem; color: {C["text_3"]}; max-width: 560px;
-    margin: 0.7rem auto 0 auto; line-height: 1.6;
+    font-size: 0.98rem; color: {C["text_3"]}; max-width: 580px;
+    margin: 0.85rem auto 0 auto; line-height: 1.65;
 }}
 .m-hero-meta {{
     display: inline-flex; gap: 8px;
-    margin-top: 14px; flex-wrap: wrap; justify-content: center;
+    margin-top: 18px; flex-wrap: wrap; justify-content: center;
+}}
+.m-hero-meta code {{
+    background: transparent; padding: 0; color: inherit;
+    font-size: 11px;
 }}
 .m-tag {{
     display: inline-flex; align-items: center; gap: 6px;

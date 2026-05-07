@@ -5,7 +5,7 @@ Small utility helpers used across the project.
 import random
 import string
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 class Timer:
@@ -23,12 +23,12 @@ class Timer:
 
 def format_timestamp() -> str:
     """Return an ISO-8601 UTC timestamp string."""
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def generate_experiment_id() -> str:
     """Generate a short unique experiment identifier, e.g. exp_20260406_143022_a1b2."""
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
     return f"exp_{ts}_{suffix}"
 
@@ -36,6 +36,41 @@ def generate_experiment_id() -> str:
 def word_count(text: str) -> int:
     """Count words in a text string."""
     return len(text.split())
+
+
+# Hard cap on inbound user text. Long enough for any reasonable research
+# question; short enough to bound cost and prompt-injection blast radius.
+MAX_QUESTION_CHARS = 4000
+
+
+def sanitize_user_text(text: str, max_chars: int = MAX_QUESTION_CHARS) -> str:
+    """
+    Defensive cleanup of any free-form text that flows into a prompt.
+
+    - strips ASCII control characters (except newline / tab) that some
+      injection payloads use to hide instructions from a casual reader;
+    - collapses runs of >2 newlines so an attacker cannot push the real
+      prompt off-screen;
+    - truncates to ``max_chars``;
+    - removes leading/trailing whitespace.
+
+    This is *not* a substitute for treating the LLM's output as untrusted —
+    it just denies the cheapest attacks at the front door.
+    """
+    if not text:
+        return ""
+    cleaned_chars: list[str] = []
+    for ch in text:
+        # keep printable + tab + newline; drop other control codes
+        if ch in ("\n", "\t") or (ord(ch) >= 0x20 and ord(ch) != 0x7F):
+            cleaned_chars.append(ch)
+    cleaned = "".join(cleaned_chars).strip()
+    # collapse triple+ newlines
+    while "\n\n\n" in cleaned:
+        cleaned = cleaned.replace("\n\n\n", "\n\n")
+    if len(cleaned) > max_chars:
+        cleaned = cleaned[:max_chars].rstrip() + "…"
+    return cleaned
 
 
 def truncate_text(text: str, max_chars: int = 500) -> str:

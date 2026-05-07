@@ -1,65 +1,74 @@
 # MADS — Multi-Agent Debate System
 
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.30+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
+> **Better answers, by debate.** A research platform that pits a single-agent LLM
+> baseline against a structured propose / critique / revise / judge pipeline,
+> and measures whether the debate is actually worth it.
+
+[![CI](https://github.com/diogovasconcelosmerca/multi-agent-debate/actions/workflows/ci.yml/badge.svg)](https://github.com/diogovasconcelosmerca/multi-agent-debate/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.30+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
+[![Pydantic](https://img.shields.io/badge/Pydantic-v2-E92063?logo=pydantic&logoColor=white)](https://docs.pydantic.dev)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Ollama](https://img.shields.io/badge/Ollama-Local-000000)](https://ollama.com)
 [![Groq](https://img.shields.io/badge/Groq-Cloud-F55036)](https://console.groq.com)
 [![Gemini](https://img.shields.io/badge/Gemini-Cloud-4285F4?logo=google&logoColor=white)](https://aistudio.google.com)
 
-An experimental platform that compares **single-agent** LLM responses against **multi-agent debate** responses, measuring whether structured argumentation between AI agents produces higher-quality answers.
-
-Built as an academic research tool with a production-quality UI.
+![Home page](docs/assets/home_preview.png)
 
 ---
 
-## Hypothesis
+## The 30-second pitch
 
-> *Does a structured propose → critique → revise → judge pipeline among multiple AI agents produce measurably better responses than a single agent answering the same question?*
+- **Question in → two answers out.** Same model, same prompt, same temperature.
+  One is produced by a single-agent baseline; the other by a four-step debate
+  (Proponent → Critic → Revision → Judge). Compare them side-by-side.
+- **Three interchangeable backends.** Ollama (local), Groq, or Gemini — pick
+  whichever has free quota; switch in one click without code changes.
+- **Pydantic-validated end-to-end.** Every LLM output is parsed into a typed
+  schema before it can corrupt persisted data.
+- **Telemetry per call.** Every model call writes a structured JSONL line so
+  cost, latency, and failure modes are observable without extra plumbing.
+- **CI that actually fails on regressions.** Ruff + mypy + pytest run on every
+  push; a golden-dataset eval suite catches behavioural drift locally.
 
-MADS tests this by running both approaches side-by-side and evaluating them with LLM-as-Judge scoring across four dimensions.
-
----
-
-## Demo
-
-| Interactive Chat | Results Dashboard |
-|:---:|:---:|
-| ![Chat View](docs/assets/chat_preview.png) | ![Dashboard](docs/assets/dashboard_preview.png) |
-
-> To add your own screenshots: run the app, take screenshots, and save them in `docs/assets/`.
+```bash
+git clone https://github.com/diogovasconcelosmerca/multi-agent-debate.git
+cd multi-agent-debate && pip install -r requirements.txt && streamlit run Home.py
+```
 
 ---
 
 ## Architecture
 
-```
-                          +------------------+
-                          |   User Question  |
-                          +--------+---------+
-                                   |
-                    +--------------+--------------+
-                    |                             |
-            +-------v-------+           +---------v---------+
-            |   BASELINE    |           |   DEBATE PIPELINE |
-            | (Single Agent)|           |                   |
-            +-------+-------+           |  Agent A: Propose |
-                    |                   |        |          |
-                    |                   |  Agent B: Critique|
-                    |                   |        |          |
-                    |                   |  Agent A: Revise  |
-                    |                   |        |          |
-                    |                   |  Agent C: Judge   |
-                    +-------+-----------+---------+---------+
-                            |                     |
-                    +-------v---------------------v-------+
-                    |         LLM-as-Judge Evaluator      |
-                    |  Coherence | Reasoning | Completeness |
-                    |            | Clarity   | Heuristics  |
-                    +-------------------------------------+
+```mermaid
+flowchart TB
+    User([User question]) --> UI[Streamlit UI<br/>Home / Chat / Runner / Dashboard]
+    UI --> Sidebar[/Shared sidebar<br/>render_sidebar/]
+    Sidebar -->|backend choice| Factory[get_client]
+    Factory -->|ollama| OC[OllamaClient]
+    Factory -->|groq| GC[GroqClient]
+    Factory -->|gemini| GMC[GeminiClient]
+
+    UI -->|run_baseline| BE[Baseline engine]
+    UI -->|run_debate| DE[Debate engine]
+    BE & DE -.uses.-> OC & GC & GMC
+    OC & GC & GMC -->|record_llm_call| TEL[(JSONL telemetry<br/>data/logs/llm_calls.jsonl)]
+
+    BE --> EV[Evaluator<br/>LLM-as-judge + heuristics]
+    DE --> EV
+    EV -->|LlmScores.model_validate| MODELS[Pydantic models]
+    EV --> ST[Storage<br/>ExperimentRecord JSON + summary CSV]
+    ST --> DASH[Dashboard charts]
+
+    classDef io fill:#E8733A20,stroke:#E8733A;
+    classDef core fill:#1F1F23,stroke:#33333A,color:#EEEEF1;
+    classDef store fill:#2B2B30,stroke:#444,color:#EEEEF1;
+    class User,DASH io;
+    class UI,Sidebar,Factory,BE,DE,EV,MODELS core;
+    class OC,GC,GMC,TEL,ST store;
 ```
 
-### Agent Roles
+### Agent roles
 
 | Agent | Role | Behaviour |
 |-------|------|-----------|
@@ -67,258 +76,248 @@ MADS tests this by running both approaches side-by-side and evaluating them with
 | **Agent B** | Critic | Identifies logical flaws, biases, missing perspectives, and risks |
 | **Agent C** | Judge | Synthesises proposal + critique + revision into a balanced final answer |
 
-### Evaluation
+### Evaluation (1–5 per dimension)
 
-Each response is scored 1–5 on four dimensions by an LLM evaluator:
+- **Coherence** — logical consistency
+- **Reasoning depth** — multi-step, evidence-based thinking
+- **Completeness** — coverage of the question
+- **Clarity** — readability
 
-- **Coherence** — logical consistency and organisation
-- **Reasoning Depth** — multi-step, evidence-based thinking
-- **Completeness** — coverage of all relevant aspects
-- **Clarity** — readability and structure
-
-Supplemented by heuristic metrics: word count, response length, and unique concept count.
-
----
-
-## Features
-
-- **Three interchangeable backends** — Ollama (local, offline), Groq (cloud, fast), Gemini (cloud, generous free tier)
-- **Chat-style debate view** — watch agents message each other in real time, like a group chat
-- **Step progress indicator** — visual pipeline showing which stage the debate is at
-- **Animated transitions** — fade-in messages, typing indicators, hover micro-interactions
-- **Glass-morphism UI** — modern dark theme with refined typography and an accent gradient
-- **Tabbed comparison** — switch between baseline and debate results
-- **Radar chart** — visual score comparison across all dimensions
-- **Batch experiments** — run multiple questions and auto-save results
-- **Interactive dashboard** — Plotly charts, box plots, latency analysis, CSV export
-- **Portfolio-ready** — deployable to Streamlit Community Cloud
+Plus deterministic heuristics: word count, response length, unique-concept count.
+Every score is round-tripped through `LlmScores` (Pydantic) so a hallucinated
+`"high"` or `7` cannot reach the dashboard or storage.
 
 ---
 
-## Tech Stack
+## Why three backends?
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| Frontend | Streamlit | Interactive web UI |
-| LLM (local) | Ollama | Free, private, offline inference |
-| LLM (cloud) | Groq API | Free tier, sub-second 70B inference |
-| LLM (cloud) | Google Gemini API | Generous free tier, fast Flash models |
-| Visualisation | Plotly + Custom SVG | Charts, radar diagrams |
-| Data | Pandas + JSON/CSV | Persistence and analysis |
-| Language | Python 3.11+ | Core logic |
+Early MADS shipped with two — local Ollama and cloud Groq. Both broke in
+realistic usage:
+
+- **Groq's free tier** is rate-limited per minute *and* per day. A multi-agent
+  debate is up to ~10 LLM calls per question (4 debate + baseline + 4
+  evaluator); a single afternoon of experimentation exhausts the daily quota,
+  and the per-minute cap fires after ~3 questions back-to-back. The API
+  responds with HTTP 429 and the page hangs until timeout.
+- **Local Ollama** is unmetered but slow on CPU-only hardware. A 3B model can
+  take 60–90s per call on a laptop; the original 120s timeout was below the
+  worst case for the four-call pipeline, so requests failed even when the
+  model was producing output.
+
+Both failures looked identical from the user's seat: *the page stops*. Adding
+a third backend and tuning the existing two resolves it.
+
+| Failure | Fix |
+|---|---|
+| Groq 429 / quota exhausted | New **Gemini** backend (`gemini-2.0-flash`) with a much larger free tier |
+| Groq 401 / invalid key | Clearer error message pointing at console.groq.com |
+| Ollama timeouts | `GENERATE_TIMEOUT` raised 120s → 300s; `llama3.2:1b` surfaced as the recommended fast fallback |
+| Sub-pages had no sidebar | Sidebar extracted to `core/sidebar.py` and called from every page so direct navigation works |
+
+The three backends are interchangeable: any of them satisfies the same
+`generate / generate_json / list_models / check_connection` interface, so the
+debate engine, baseline engine, and evaluator never branch on the provider.
 
 ---
 
-## Quick Start
+## Performance (indicative)
+
+| Backend | Model | Avg latency / call | 4-step debate |
+|---|---|---|---|
+| Ollama (CPU laptop) | `llama3.2` (3B Q4) | ~25–60 s | ~2–4 min |
+| Ollama (CPU laptop) | `llama3.2:1b` (1B Q4) | ~6–15 s | ~30–60 s |
+| Groq | `llama-3.3-70b-versatile` | ~1.0–1.5 s | ~5–8 s |
+| Gemini | `gemini-2.0-flash` | ~0.8–1.2 s | ~4–7 s |
+
+Numbers are wall-clock against my dev machine and the public free tiers,
+captured from `data/logs/llm_calls.jsonl`. Run a few questions and your
+own dashboard will show real latency for your environment.
+
+---
+
+## Tech stack & why each piece
+
+| Piece | Why it's here |
+|---|---|
+| **Streamlit** | Fastest path to a multi-page dark-themed research UI without a separate frontend. Trade-off: no SPA-grade interactivity. |
+| **Pydantic v2** | Runtime contracts at every layer boundary. LLM-produced JSON is treated as untrusted input. |
+| **Plain `requests`** | Three providers, three different SDKs would balloon the dependency tree; the REST surfaces are tiny enough to wrap by hand. |
+| **Plotly** | Interactive radar / bar / box charts in dark mode without writing chart.js by hand. |
+| **Custom SVG radar** | Plotly's radar is heavier than needed; a 60-line SVG renders in the same theme tokens as the rest of the UI. |
+| **JSONL telemetry** | Zero-config, append-only, trivially loadable into pandas. A SQL DB would over-spec a single-user research tool. |
+| **Playwright** | Headless screenshots for the README that always match the live UI. Lives in `dev` extras, not in runtime deps. |
+
+---
+
+## Quick start
 
 Pick **one** backend. The app supports switching at runtime via the sidebar.
 
 ### Option A — Local with Ollama (fully offline)
 
 ```bash
-# 1. Install Ollama
-#    https://ollama.com/download
+# Install Ollama: https://ollama.com/download
 
-# 2. Pull a model (the 1B variant is fastest on CPU-only laptops)
+# Pull a model. The 1B variant is fastest on CPU-only laptops.
 ollama pull llama3.2:1b
-# or for better quality:
+# or for stronger reasoning:
 ollama pull llama3.2
 
-# 3. Start the daemon (leave running)
-ollama serve
+ollama serve     # leave running
 
-# 4. Clone and run
 git clone https://github.com/diogovasconcelosmerca/multi-agent-debate.git
 cd multi-agent-debate
 python -m venv venv
 venv\Scripts\activate          # Windows
 # source venv/bin/activate     # macOS/Linux
 pip install -r requirements.txt
-streamlit run app.py
+streamlit run Home.py
 ```
 
-### Option B — Cloud with Groq (no install needed)
+### Option B — Cloud with Groq
 
 ```bash
-# 1. Get a free API key at https://console.groq.com
+# Free key at https://console.groq.com
+export GROQ_API_KEY=gsk_...     # PowerShell: $env:GROQ_API_KEY = "gsk_..."
 
-# 2. Clone and run
-git clone https://github.com/diogovasconcelosmerca/multi-agent-debate.git
-cd multi-agent-debate
 pip install -r requirements.txt
-streamlit run app.py
-
-# 3. In the sidebar, choose "Groq" and paste your API key.
+streamlit run Home.py
+# In the sidebar: choose "Groq".
 ```
 
-### Option C — Cloud with Google Gemini (recommended free option)
+### Option C — Cloud with Gemini (recommended free tier)
 
 ```bash
-# 1. Get a free API key at https://aistudio.google.com/app/apikey
+# Free key at https://aistudio.google.com/app/apikey
+export GEMINI_API_KEY=AIza...
 
-# 2. Clone and run (same as above)
-streamlit run app.py
-
-# 3. In the sidebar, choose "Gemini" and paste your API key.
-#    Default model is gemini-2.0-flash (fast + generous free quota).
+pip install -r requirements.txt
+streamlit run Home.py
+# In the sidebar: choose "Gemini".
 ```
 
-You can also export the key as an environment variable instead of pasting it:
+### Option D — Streamlit Community Cloud
 
-```bash
-# Bash / zsh
-export GEMINI_API_KEY="your_key"
-export GROQ_API_KEY="your_key"
-
-# PowerShell
-$env:GEMINI_API_KEY = "your_key"
-$env:GROQ_API_KEY   = "your_key"
-```
-
-### Option D — Streamlit Community Cloud (live demo)
-
-1. Fork this repo on GitHub
-2. Go to [share.streamlit.io](https://share.streamlit.io)
-3. Deploy `app.py` from your fork
-4. Add `GROQ_API_KEY` and/or `GEMINI_API_KEY` in the Streamlit Secrets settings
-5. Share the link in your portfolio
+1. Fork on GitHub
+2. [share.streamlit.io](https://share.streamlit.io) → connect → deploy `Home.py`
+3. **Advanced settings → Secrets**:
+   ```toml
+   GROQ_API_KEY   = "gsk_..."
+   GEMINI_API_KEY = "AIza..."
+   ```
+4. Click **Deploy**.
 
 ---
 
-## Project Structure
+## Project layout
 
 ```
 multi_agent_debate/
-|-- app.py                          # Streamlit entry point + sidebar config
-|-- pages/
-|   |-- 1_Interactive_Chat.py       # Chat-style debate view
-|   |-- 2_Experiment_Runner.py      # Batch experiment runner
-|   +-- 3_Results_Dashboard.py      # Results visualisation + radar chart
-|-- core/
-|   |-- config.py                   # Centralised configuration
-|   |-- llm_client.py               # Unified LLM client (Ollama + Groq + Gemini)
-|   |-- ollama_client.py            # Backward-compatibility shim
-|   |-- prompts.py                  # All agent prompt templates
-|   |-- baseline_engine.py          # Single-agent engine
-|   |-- debate_engine.py            # Multi-agent debate orchestration
-|   |-- evaluator.py                # LLM-judge + heuristic scoring
-|   |-- storage.py                  # JSON/CSV persistence layer
-|   |-- theme.py                    # Design system (CSS, components, SVGs)
-|   +-- utils.py                    # Timer, formatting, text utilities
-|-- data/
-|   |-- inputs/sample_questions.json  # 15 curated questions across 7 domains
-|   |-- outputs/                      # Saved experiment JSONs (gitignored)
-|   +-- results/                      # CSV summary index (gitignored)
-|-- docs/
-|   |-- architecture.md
-|   |-- methodology.md
-|   |-- experiments.md
-|   +-- user_guide.md
-|-- .streamlit/
-|   +-- config.toml                 # Streamlit theme configuration
-|-- requirements.txt
-|-- LICENSE
-+-- README.md
+├── Home.py                       # Streamlit entry (page nav reads "Home")
+├── pages/                        # Streamlit auto-pages
+│   ├── 1_Interactive_Chat.py
+│   ├── 2_Experiment_Runner.py
+│   └── 3_Results_Dashboard.py
+├── core/                         # Application core
+│   ├── config.py                 # Centralised constants + secret loading
+│   ├── llm_client.py             # OllamaClient | GroqClient | GeminiClient + factory
+│   ├── ollama_client.py          # Backward-compatibility shim
+│   ├── sidebar.py                # Shared render_sidebar() called by every page
+│   ├── prompts.py                # All system + user prompt templates
+│   ├── baseline_engine.py        # Single-agent run
+│   ├── debate_engine.py          # Four-step propose/critique/revise/judge
+│   ├── evaluator.py              # LLM-as-judge + heuristic scoring
+│   ├── models.py                 # Pydantic schemas (the layer contracts)
+│   ├── telemetry.py              # Structured per-call JSONL logging
+│   ├── storage.py                # ExperimentRecord-validated persistence
+│   ├── theme.py                  # Design system (CSS, components, SVG radar)
+│   └── utils.py                  # Timer, sanitiser, heuristics
+├── tests/                        # pytest unit tests (run in CI)
+├── evals/                        # Golden-dataset regression suite
+│   ├── golden_dataset.json
+│   ├── run_eval.py
+│   └── README.md
+├── scripts/
+│   └── capture_screenshots.py    # Playwright-driven docs screenshots
+├── data/
+│   ├── inputs/                   # Sample question sets
+│   ├── outputs/                  # Persisted experiment JSONs (gitignored)
+│   ├── results/                  # CSV summary index (gitignored)
+│   └── logs/                     # Per-call JSONL telemetry (gitignored)
+├── docs/
+│   ├── assets/                   # README screenshots
+│   ├── ANATOMY.md                # Engineering deep-dive
+│   ├── architecture.md
+│   ├── methodology.md
+│   ├── experiments.md
+│   └── user_guide.md
+├── .github/workflows/ci.yml      # Ruff + mypy + pytest on every push
+├── pyproject.toml                # Ruff / mypy / pytest config
+├── requirements.txt              # Runtime deps
+├── requirements-dev.txt          # + pytest, ruff, mypy, playwright
+└── README.md
 ```
 
 ---
 
-## How It Works
+## Development
 
-### 1. Debate Pipeline
+```bash
+pip install -r requirements-dev.txt
 
-```python
-# Simplified flow (see core/debate_engine.py for the full implementation)
+ruff check .              # lint
+ruff format .             # auto-format
+mypy core                 # type-check
+pytest                    # unit tests (offline, ~1s)
 
-proposal  = agent_a.generate(question)                          # Step 1: Propose
-critique  = agent_b.generate(question, proposal)                # Step 2: Critique
-revision  = agent_a.generate(question, proposal, critique)      # Step 3: Revise
-judgment  = agent_c.generate(question, proposal, critique, revision)  # Step 4: Judge
+# Live-model regression (needs a backend)
+python evals/run_eval.py                       # local Ollama
+python evals/run_eval.py --backend gemini      # with GEMINI_API_KEY set
+
+# Regenerate README screenshots after a UI change
+streamlit run Home.py                          # in shell A
+python scripts/capture_screenshots.py          # in shell B
 ```
 
-### 2. Evaluation
-
-```python
-# LLM-as-Judge scores each response independently (see core/evaluator.py)
-baseline_scores = evaluate(question, baseline_response)   # {coherence: 3, ...}
-debate_scores   = evaluate(question, debate_response)     # {coherence: 4, ...}
-deltas          = debate_scores - baseline_scores         # {coherence: +1, ...}
-```
-
-### 3. Unified Backend Interface
-
-All three backends expose the same `generate` / `generate_json` / `list_models` /
-`check_connection` surface, so the engines never branch on the provider:
-
-```python
-from core.llm_client import OllamaClient, GroqClient, GeminiClient
-
-client = OllamaClient()                  # local
-client = GroqClient(api_key)             # cloud, OpenAI-compatible
-client = GeminiClient(api_key)           # cloud, Google AI Studio
-
-result = run_debate(question, model, client=client)
-```
+The CI workflow at `.github/workflows/ci.yml` runs the same lint / type-check
+/ test trio on every push and PR to `main`.
 
 ---
 
 ## Configuration
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server address (env-overridable) |
-| `DEFAULT_MODEL` | `llama3.2` | Default model for Ollama |
-| `OLLAMA_FAST_MODEL` | `llama3.2:1b` | Fast fallback for low-RAM machines |
-| `GROQ_API_KEY` | (env / secret) | Free key from console.groq.com |
-| `GROQ_DEFAULT_MODEL` | `llama-3.3-70b-versatile` | Default model for Groq |
-| `GEMINI_API_KEY` | (env / secret) | Free key from aistudio.google.com |
-| `GEMINI_DEFAULT_MODEL` | `gemini-2.0-flash` | Default model for Gemini |
-| `DEFAULT_TEMPERATURE` | `0.7` | Sampling temperature |
-| `MAX_DEBATE_ROUNDS` | `3` | Maximum propose-critique-revise cycles |
-| `GENERATE_TIMEOUT` | `300s` | Timeout per LLM call (raised for slow local models) |
-
-Both Streamlit Cloud secrets and OS environment variables are read for the
-two API keys, in that order.
-
-### Troubleshooting
-
-**Ollama keeps timing out** — the multi-agent pipeline is 4 LLM calls per
-round; on CPU-only laptops a 7B+ model can take minutes. Switch to the
-1B variant (`ollama pull llama3.2:1b`) and lower **Debate rounds** to 1.
-
-**Groq says "rate limit reached"** — the free tier has per-minute and
-per-day caps. Wait a minute, drop to `llama-3.1-8b-instant`, or switch to
-the Gemini backend in the sidebar.
-
-**Gemini returns 401 / "Invalid API key"** — double-check the key from
-[aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
-and make sure it has access to the Generative Language API.
+| Setting | Default | Notes |
+|---|---|---|
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Env-overridable |
+| `DEFAULT_MODEL` | `llama3.2` | Default Ollama model |
+| `OLLAMA_FAST_MODEL` | `llama3.2:1b` | Recommended fallback for low-RAM machines |
+| `GROQ_API_KEY` | — | Streamlit secret or env var |
+| `GROQ_DEFAULT_MODEL` | `llama-3.3-70b-versatile` | |
+| `GEMINI_API_KEY` | — | Streamlit secret or env var |
+| `GEMINI_DEFAULT_MODEL` | `gemini-2.0-flash` | |
+| `DEFAULT_TEMPERATURE` | `0.7` | |
+| `MAX_DEBATE_ROUNDS` | `3` | |
+| `GENERATE_TIMEOUT` | `300s` | Lifted from 120s — slow CPU models need it |
 
 ---
 
-## Sample Results
+## Security notes
 
-After running experiments, the dashboard shows:
-
-- **Score comparison** bar charts (baseline vs debate per dimension)
-- **Radar chart** overlaying both score profiles
-- **Distribution** box plots across experiments
-- **Latency** analysis (baseline is faster; debate is deeper)
-- **Full data table** with CSV export
+- **Prompts are sanitised at the boundary.** Every free-form input that flows
+  into a system prompt goes through `sanitize_user_text` first: control
+  characters are stripped, runs of newlines collapsed, length capped at 4 000
+  chars (8 000 for inter-agent payloads). This denies the cheapest prompt-
+  overflow tricks at the front door — it is not a substitute for treating
+  the model's output as untrusted.
+- **Evaluator has an explicit injection guardrail** in its system prompt; an
+  attacker who hides "ignore previous instructions" inside a response gets
+  their score lowered, not their instructions followed.
+- **No secrets at rest.** API keys come from Streamlit secrets or env vars
+  only; the .gitignore excludes `.streamlit/secrets.toml`, `.env`, `*.key`.
 
 ---
 
-## Academic Context
-
-This project explores research questions in:
-
-- **Agentic AI** — multi-agent architectures and inter-agent coordination
-- **Reasoning improvement** — whether structured debate enhances LLM reasoning quality
-- **AI alignment** — using adversarial critique to reduce errors and biases
-- **Experimental methodology** — systematic A/B comparison with quantitative metrics
-- **LLM evaluation** — LLM-as-Judge reliability and heuristic metric correlation
-
-### Key References
+## References
 
 - Du, Y. et al. (2023). *Improving Factuality and Reasoning in Language Models through Multiagent Debate*. arXiv:2305.14325
 - Liang, T. et al. (2023). *Encouraging Divergent Thinking in Large Language Models through Multi-Agent Debate*. arXiv:2305.19118
@@ -327,39 +326,10 @@ This project explores research questions in:
 
 ---
 
-## Deployment to Streamlit Cloud
-
-1. Push this repo to GitHub
-2. Go to [share.streamlit.io](https://share.streamlit.io) and sign in with GitHub
-3. Select your repo, branch `main`, and main file `app.py`
-4. In **Advanced settings → Secrets**, add either or both:
-   ```toml
-   GROQ_API_KEY   = "gsk_your_key_here"
-   GEMINI_API_KEY = "AIzaSy_your_key_here"
-   ```
-5. Click **Deploy**
-
-The app auto-detects whichever keys are present.
-
----
-
-## Future Work
-
-- Benchmark integration (MMLU, TruthfulQA, HumanEval)
-- Multi-model debates (different LLMs for different agents)
-- Human evaluation interface for side-by-side rating
-- Token-level streaming for real-time response display
-- Advanced metrics: semantic similarity, factual verification
-- Persistent user sessions and experiment history
-
----
-
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
-
----
+MIT — see [LICENSE](LICENSE).
 
 <p align="center">
-  <sub>Built with Streamlit · Ollama · Groq · Gemini</sub>
+  <sub>Built with Streamlit · Pydantic · Ollama · Groq · Gemini</sub>
 </p>

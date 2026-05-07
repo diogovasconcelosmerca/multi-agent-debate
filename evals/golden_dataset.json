@@ -1,0 +1,42 @@
+[
+  {
+    "id": "ethics_trolley",
+    "question": "A self-driving car must choose between hitting one pedestrian or swerving into a wall and killing its single passenger. How should the car decide and who is morally responsible?",
+    "domain": "Ethics",
+    "expected_keywords": ["responsibility", "utilitarian", "deontolog", "trade-off"],
+    "expected_word_count_min": 80,
+    "notes": "A classic trolley-problem variant. Strong answers explicitly weigh competing ethical frameworks rather than picking one without justification."
+  },
+  {
+    "id": "science_entropy",
+    "question": "Explain the second law of thermodynamics in plain language and give one real-world example where it bites a software engineer.",
+    "domain": "Science",
+    "expected_keywords": ["entropy", "disorder", "irreversible"],
+    "expected_word_count_min": 80,
+    "notes": "Tests both technical accuracy and the ability to bridge domains. Good answers connect entropy to data, caches, or system rot."
+  },
+  {
+    "id": "tech_caching",
+    "question": "When designing a caching layer in front of a database, what are the three biggest failure modes and how do you mitigate each?",
+    "domain": "Technology",
+    "expected_keywords": ["stale", "invalidat", "thunder", "cache"],
+    "expected_word_count_min": 100,
+    "notes": "Engineering depth check. Strong answers name failure modes (stale reads, thundering herd, cache stampede) and concrete mitigations."
+  },
+  {
+    "id": "planning_career",
+    "question": "Outline a 90-day plan for a senior engineer joining a struggling team that has missed three quarterly OKRs in a row.",
+    "domain": "Planning",
+    "expected_keywords": ["30", "60", "90", "stakeholder"],
+    "expected_word_count_min": 120,
+    "notes": "Tests structured planning. Strong answers use the 30/60/90 framing and balance listening with action."
+  },
+  {
+    "id": "philosophy_consciousness",
+    "question": "Is consciousness substrate-independent? Argue both sides briefly and then state your own position with reasoning.",
+    "domain": "Philosophy",
+    "expected_keywords": ["substrate", "function", "qualia"],
+    "expected_word_count_min": 100,
+    "notes": "Probes whether the model genuinely engages with both sides before committing — a key debate-vs-baseline differentiator."
+  }
+]
