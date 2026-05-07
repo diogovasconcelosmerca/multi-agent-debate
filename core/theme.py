@@ -7,6 +7,7 @@ Typography: Inter. No emojis.
 """
 
 import base64
+import html
 import streamlit as st
 
 # ---------------------------------------------------------------------------
@@ -68,11 +69,15 @@ def inject_premium_css():
 # ---------------------------------------------------------------------------
 
 def page_header(title: str, subtitle: str = ""):
+    title = html.escape(title)
+    subtitle = html.escape(subtitle)
     sub = f'<p class="m-page-sub">{subtitle}</p>' if subtitle else ""
     st.markdown(f'<div class="m-page-header"><h1 class="m-page-title">{title}</h1>{sub}</div>', unsafe_allow_html=True)
 
 
 def section_header(title: str, subtitle: str = ""):
+    title = html.escape(title)
+    subtitle = html.escape(subtitle)
     sub = f'<span class="m-section-sub"> — {subtitle}</span>' if subtitle else ""
     st.markdown(f'<div class="m-section"><h2 class="m-section-title">{title}{sub}</h2></div>', unsafe_allow_html=True)
 
@@ -100,9 +105,11 @@ def chat_message(agent_name: str, role: str, content: str, time_s: float | None 
     """Render a chat-bubble style message with fade-in animation."""
     color_map = {"Agent A": C["agent_a"], "Agent B": C["agent_b"], "Agent C": C["agent_c"], "You": C["text_2"]}
     color = color_map.get(agent_name, C["accent"])
-    initial = agent_name[0] if agent_name else "?"
+    initial = html.escape(agent_name[0]) if agent_name else "?"
     time_html = f'<span class="m-chat-time">{time_s:.1f}s</span>' if time_s is not None else ""
-    safe = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
+    safe = html.escape(content).replace("\n", "<br>")
+    agent_name = html.escape(agent_name)
+    role = html.escape(role)
     align_cls = "m-chat-right" if align == "right" else ""
 
     st.markdown(f'''
@@ -124,9 +131,11 @@ def agent_message(agent_name: str, role: str, content: str, time_s: float | None
     """Legacy card-style message for expanders."""
     color_map = {"Agent A": C["agent_a"], "Agent B": C["agent_b"], "Agent C": C["agent_c"]}
     color = color_map.get(agent_name, C["accent"])
-    initial = agent_name[-1] if agent_name else "?"
+    initial = html.escape(agent_name[-1]) if agent_name else "?"
     time_html = f'<span class="m-agent-time">{time_s:.1f}s</span>' if time_s is not None else ""
-    safe = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
+    safe = html.escape(content).replace("\n", "<br>")
+    agent_name = html.escape(agent_name)
+    role = html.escape(role)
     st.markdown(f'''
     <div class="m-agent m-fadein" style="border-left-color:{color};">
         <div class="m-agent-head">
@@ -146,6 +155,8 @@ def typing_indicator(agent_name: str, action: str = "is thinking"):
     """Show a pulsing typing indicator."""
     color_map = {"Agent A": C["agent_a"], "Agent B": C["agent_b"], "Agent C": C["agent_c"]}
     color = color_map.get(agent_name, C["accent"])
+    agent_name = html.escape(agent_name)
+    action = html.escape(action)
     st.markdown(f'''
     <div class="m-typing">
         <div class="m-typing-dots">
@@ -162,6 +173,7 @@ def step_indicator(steps: list[str], active: int = -1, completed: int = -1):
     """Render a horizontal step progress bar."""
     items = ""
     for i, label in enumerate(steps):
+        label = html.escape(label)
         if i < completed:
             cls = "m-step-done"
         elif i == active:
@@ -177,6 +189,9 @@ def step_indicator(steps: list[str], active: int = -1, completed: int = -1):
 
 
 def metric_card(label: str, value: str, delta: str = "", color: str = ""):
+    label = html.escape(label)
+    value = html.escape(value)
+    delta = html.escape(delta)
     d_html = ""
     if delta:
         dc = C["success"] if delta.startswith("+") else C["error"] if delta.startswith("-") else C["text_3"]
