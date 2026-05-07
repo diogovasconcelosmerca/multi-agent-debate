@@ -2,6 +2,7 @@
 Experiment Runner -- batch experiments.
 """
 
+import html
 import json
 import sys
 from pathlib import Path
@@ -55,11 +56,13 @@ if source == "Sample questions":
         ''', unsafe_allow_html=True)
         with st.expander("Preview"):
             for i, q in enumerate(questions):
+                safe_q = html.escape(q["question"])
+                safe_d = html.escape(q.get("domain", ""))
                 st.markdown(f'''
                 <div style="padding:4px 0;border-bottom:1px solid {C["border"]};font-size:13px;color:{C["text_2"]};">
                     <span style="color:{C["text_4"]};margin-right:6px;">{i+1}.</span>
-                    {q["question"]}
-                    <span style="color:{C["accent"]};font-size:10px;margin-left:6px;">{q.get("domain","")}</span>
+                    {safe_q}
+                    <span style="color:{C["accent"]};font-size:10px;margin-left:6px;">{safe_d}</span>
                 </div>
                 ''', unsafe_allow_html=True)
     else:
@@ -102,23 +105,27 @@ if questions:
                 })
                 completed += 1
                 w = ev.get("winner", "?")
+                safe_w = html.escape(w)
                 wc = C["success"] if w == "debate" else C["accent"] if w == "baseline" else C["text_3"]
                 with container:
+                    display_q = html.escape(q[:70]) + ("..." if len(q) > 70 else "")
                     st.markdown(f'''
                     <div class="m-result-row">
                         <span style="color:{C["success"]};">&#10003;</span>
-                        <span class="m-rr-q">{q[:70]}{"..." if len(q)>70 else ""}</span>
-                        <span class="m-rr-badge" style="color:{wc};background:{wc}12;">{w}</span>
+                        <span class="m-rr-q">{display_q}</span>
+                        <span class="m-rr-badge" style="color:{wc};background:{wc}12;">{safe_w}</span>
                         <span class="m-rr-time">{b["elapsed_seconds"]:.0f}s / {db["total_elapsed_seconds"]:.0f}s</span>
                     </div>
                     ''', unsafe_allow_html=True)
             except Exception as e:
                 errors += 1
                 with container:
+                    display_q = html.escape(q[:60])
+                    safe_e = html.escape(str(e))
                     st.markdown(f'''
                     <div class="m-result-row" style="border-color:{C["error"]}30;">
                         <span style="color:{C["error"]};">&#10007;</span>
-                        <span class="m-rr-q" style="color:{C["error"]};">{q[:60]}... -- {e}</span>
+                        <span class="m-rr-q" style="color:{C["error"]};">{display_q}... -- {safe_e}</span>
                     </div>
                     ''', unsafe_allow_html=True)
 
