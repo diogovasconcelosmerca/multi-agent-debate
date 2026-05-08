@@ -138,18 +138,30 @@ if client is None:
         info_banner("No Ollama client available — internal error.", variant="warn")
     else:
         info_banner(
-            f"Add a {backend_meta['label']} API key in the sidebar to start running debates.",
+            f"Add a {backend_meta['label']} API key in the sidebar (or in Streamlit Cloud → Settings → Secrets) to start running debates.",
             variant="base",
         )
 elif not connected:
     if backend_id == "ollama":
         info_banner(
-            "Ollama is not reachable. Run `ollama serve`, then refresh this page.",
+            "Ollama is not reachable. Locally: run `ollama serve`. "
+            "On Streamlit Cloud: Ollama can't run there — switch to **Gemini** "
+            "in the sidebar (free key at aistudio.google.com/app/apikey).",
+            variant="warn",
+        )
+    elif backend_id == "groq":
+        info_banner(
+            "Groq is not reachable. The free tier has per-minute and per-day "
+            "caps; if you've hit them, switch to **Gemini** in the sidebar — "
+            "its free tier is much more generous.",
             variant="warn",
         )
     else:
         info_banner(
-            f"{backend_meta['label']} is not reachable. Double-check the API key and try again.",
+            "Gemini is not reachable. Double-check the API key in the sidebar "
+            "(or in Streamlit Cloud → ⋯ → Settings → Secrets, key name "
+            "`GEMINI_API_KEY`). Get a free key at "
+            "[aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey).",
             variant="warn",
         )
 else:

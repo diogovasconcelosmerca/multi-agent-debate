@@ -413,18 +413,43 @@ class GeminiClient:
 # -----------------------------------------------------------------------
 
 def _extract_gemini_text(data: dict) -> str:
-    """Pull the response text out of a Gemini generateContent payload."""
+    """Pull the response text out of a Gemini generateContent payload.
+
+    Surfaces every empty-content corner case as an explicit error
+    rather than returning an empty string — silent empties were
+    confusing users who saw a "complete" status but no answer.
+    """
     candidates = data.get("candidates") or []
     if not candidates:
-        # Surface block reasons (safety filter, recitation, etc.) instead
-        # of returning an empty string silently.
         feedback = data.get("promptFeedback", {})
         reason = feedback.get("blockReason")
         if reason:
             raise LlmConnectionError(f"Gemini blocked the request: {reason}.")
-        return ""
-    parts = candidates[0].get("content", {}).get("parts", []) or []
-    return "".join(p.get("text", "") for p in parts).strip()
+        raise LlmConnectionError(
+            "Gemini returned no candidates. The model may be temporarily "
+            "unavailable — try again or pick another model."
+        )
+    cand = candidates[0]
+    parts = cand.get("content", {}).get("parts", []) or []
+    text = "".join(p.get("text", "") for p in parts).strip()
+    if text:
+        return text
+    # No text — translate the finishReason into something actionable.
+    reason = cand.get("finishReason", "")
+    if reason == "MAX_TOKENS":
+        raise LlmConnectionError(
+            "Gemini hit the output token cap before producing text. "
+            "Try a shorter question or a smaller model (gemini-2.0-flash-lite)."
+        )
+    if reason in ("SAFETY", "RECITATION"):
+        raise LlmConnectionError(
+            f"Gemini refused the request ({reason}). Reword the question."
+        )
+    if reason and reason != "STOP":
+        raise LlmConnectionError(
+            f"Gemini returned no text (finishReason={reason})."
+        )
+    return ""
 
 
 def _parse_json(raw: str) -> dict:
