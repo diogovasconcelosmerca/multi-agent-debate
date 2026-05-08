@@ -517,17 +517,35 @@ section[data-testid="stSidebar"] .stRadio > div > label > div:first-child {{
     display: none;
 }}
 
-/* Sidebar nav links */
-section[data-testid="stSidebar"] a[data-testid="stSidebarNavLink"] {{
-    border-radius: 8px; padding: 6px 12px; margin: 1px 0;
-    font-size: 13px; font-weight: 500; color: {C["text_2"]};
+/* Hide Streamlit's auto-discovered sidebar nav (built from filenames).
+   We render our own with `st.page_link` below the brand so the layout
+   order is: brand → links → backend → … */
+section[data-testid="stSidebar"] [data-testid="stSidebarNav"],
+section[data-testid="stSidebar"] [data-testid="stSidebarNavSeparator"] {{
+    display: none !important;
+}}
+
+/* Style the custom st.page_link entries to feel like real nav. */
+section[data-testid="stSidebar"] [data-testid="stPageLink-NavLink"],
+section[data-testid="stSidebar"] a[data-testid="stPageLink"] {{
+    border-radius: 8px;
+    padding: 7px 12px !important;
+    margin: 1px 0;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: {C["text_2"]} !important;
+    text-decoration: none !important;
     transition: all 0.15s;
 }}
-section[data-testid="stSidebar"] a[data-testid="stSidebarNavLink"]:hover {{
-    background: {C["bg_hover"]}; color: {C["text_1"]};
+section[data-testid="stSidebar"] [data-testid="stPageLink-NavLink"]:hover,
+section[data-testid="stSidebar"] a[data-testid="stPageLink"]:hover {{
+    background: {C["bg_hover"]} !important;
+    color: {C["text_1"]} !important;
 }}
-section[data-testid="stSidebar"] a[data-testid="stSidebarNavLink"][aria-current="page"] {{
-    background: {C["accent"]}12; color: {C["accent"]};
+section[data-testid="stSidebar"] [data-testid="stPageLink-NavLink"][aria-current="page"],
+section[data-testid="stSidebar"] a[data-testid="stPageLink"][aria-current="page"] {{
+    background: {C["accent"]}14 !important;
+    color: {C["accent"]} !important;
     border-left: 2px solid {C["accent"]};
 }}
 

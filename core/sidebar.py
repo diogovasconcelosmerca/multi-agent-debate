@@ -72,6 +72,27 @@ def render_sidebar() -> dict:
     with st.sidebar:
         sidebar_brand()
 
+        # --- Custom navigation (replaces Streamlit's auto sidebar nav) --
+        # The auto nav reads filenames ("app", "Interactive Chat", ...).
+        # We hide it via CSS and render explicit page links here so the
+        # brand stays at the very top and labels are under our control.
+        st.page_link("Home.py", label="Home", icon=":material/home:")
+        st.page_link(
+            "pages/1_Interactive_Chat.py",
+            label="Interactive Chat",
+            icon=":material/forum:",
+        )
+        st.page_link(
+            "pages/2_Experiment_Runner.py",
+            label="Experiment Runner",
+            icon=":material/science:",
+        )
+        st.page_link(
+            "pages/3_Results_Dashboard.py",
+            label="Results Dashboard",
+            icon=":material/analytics:",
+        )
+
         # --- Backend (vertical buttons via radio with custom CSS) -------
         sidebar_label("Backend")
         backend_id = st.radio(
