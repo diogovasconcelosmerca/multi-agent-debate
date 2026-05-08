@@ -10,6 +10,22 @@ import base64
 
 import streamlit as st
 
+
+def _html(markup: str) -> None:
+    """
+    Emit raw HTML, bypassing the Markdown processor entirely.
+
+    `st.markdown(..., unsafe_allow_html=True)` first runs the string
+    through a Markdown renderer, which can mangle deeply-indented HTML
+    (treating it as <code>). `st.html` (added in Streamlit 1.33) is the
+    dedicated raw-HTML API; we fall back to markdown for older runtimes.
+    """
+    if hasattr(st, "html"):
+        st.html(markup)
+    else:
+        st.markdown(markup, unsafe_allow_html=True)
+
+
 # ---------------------------------------------------------------------------
 # Palette
 # ---------------------------------------------------------------------------
@@ -96,7 +112,7 @@ def sidebar_brand():
         f'</div>'
         f'</div>'
     )
-    st.markdown(html, unsafe_allow_html=True)
+    _html(html)
 
 
 def sidebar_label(text: str):
@@ -154,7 +170,7 @@ def chat_message(agent_name: str, role: str, content: str, time_s: float | None 
         f'</div>'
         f'</div>'
     )
-    st.markdown(html, unsafe_allow_html=True)
+    _html(html)
 
 
 def agent_message(agent_name: str, role: str, content: str, time_s: float | None = None):
@@ -177,7 +193,7 @@ def agent_message(agent_name: str, role: str, content: str, time_s: float | None
         f'<div class="m-agent-body">{safe}</div>'
         f'</div>'
     )
-    st.markdown(html, unsafe_allow_html=True)
+    _html(html)
 
 
 def typing_indicator(agent_name: str, action: str = "is thinking"):
@@ -194,7 +210,7 @@ def typing_indicator(agent_name: str, action: str = "is thinking"):
         f'<span class="m-typing-text" style="color:{color};">{agent_name} {action}...</span>'
         f'</div>'
     )
-    st.markdown(html, unsafe_allow_html=True)
+    _html(html)
 
 
 def step_indicator(steps: list[str], active: int = -1, completed: int = -1):
@@ -228,7 +244,7 @@ def metric_card(label: str, value: str, delta: str = "", color: str = ""):
         f'{d_html}'
         f'</div>'
     )
-    st.markdown(html, unsafe_allow_html=True)
+    _html(html)
 
 
 def winner_banner(winner: str):
@@ -353,8 +369,17 @@ _CSS = f"""
         {C["bg_app"]};
     color: {C["text_1"]};
 }}
-#MainMenu, header, footer {{ visibility: hidden; }}
+/* Hide Streamlit chrome — but keep the header element so the
+   sidebar collapse/expand button stays clickable. */
+#MainMenu, footer {{ visibility: hidden; }}
 .stDeployButton {{ display: none; }}
+header[data-testid="stHeader"] {{
+    background: transparent;
+    height: 2.5rem;
+}}
+header[data-testid="stHeader"] [data-testid="stToolbar"] {{ visibility: hidden; }}
+/* Ensure the sidebar reopen button is visible when collapsed. */
+[data-testid="stSidebarCollapsedControl"] {{ visibility: visible !important; }}
 
 code, kbd, pre {{
     font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
