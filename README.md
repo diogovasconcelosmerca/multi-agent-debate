@@ -3,7 +3,7 @@
 > **Does multi-agent debate produce measurably better LLM answers than a single agent?**
 > MADS runs a single-agent baseline and a four-step propose / critique / revise / judge
 > debate side-by-side, scores both with an LLM-as-judge plus deterministic heuristics,
-> and persists every run for cross-experiment analysis. Three interchangeable backends
+> and persists every run for cross-experiment analysis. Four interchangeable backends
 > (Ollama, Groq, Gemini), Pydantic-validated outputs, structured telemetry, and a
 > golden-dataset eval suite — production-shape engineering applied to a research
 > question.
@@ -19,6 +19,7 @@
 [![Ollama](https://img.shields.io/badge/Ollama-Local-000000)](https://ollama.com)
 [![Groq](https://img.shields.io/badge/Groq-Cloud-F55036)](https://console.groq.com)
 [![Gemini](https://img.shields.io/badge/Gemini-Cloud-4285F4?logo=google&logoColor=white)](https://aistudio.google.com)
+[![OpenRouter](https://img.shields.io/badge/OpenRouter-Cloud-6E40C9)](https://openrouter.ai)
 
 ![Home page](docs/assets/home_preview.png)
 
@@ -29,7 +30,7 @@
 - **Question in → two answers out.** Same model, same prompt, same temperature.
   One is produced by a single-agent baseline; the other by a four-step debate
   (Proponent → Critic → Revision → Judge). Compare them side-by-side.
-- **Three interchangeable backends.** Ollama (local), Groq, or Gemini — pick
+- **Four interchangeable backends.** Ollama (local), Groq, Gemini, or OpenRouter — pick
   whichever has free quota; switch in one click without code changes.
 - **Pydantic-validated end-to-end.** Every LLM output is parsed into a typed
   schema before it can corrupt persisted data.
@@ -55,11 +56,12 @@ flowchart TB
     Factory -->|ollama| OC[OllamaClient]
     Factory -->|groq| GC[GroqClient]
     Factory -->|gemini| GMC[GeminiClient]
+    Factory -->|openrouter| ORC[OpenRouterClient]
 
     UI -->|run_baseline| BE[Baseline engine]
     UI -->|run_debate| DE[Debate engine]
-    BE & DE -.uses.-> OC & GC & GMC
-    OC & GC & GMC -->|record_llm_call| TEL[(JSONL telemetry<br/>data/logs/llm_calls.jsonl)]
+    BE & DE -.uses.-> OC & GC & GMC & ORC
+    OC & GC & GMC & ORC -->|record_llm_call| TEL[(JSONL telemetry<br/>data/logs/llm_calls.jsonl)]
 
     BE --> EV[Evaluator<br/>LLM-as-judge + heuristics]
     DE --> EV
@@ -72,7 +74,7 @@ flowchart TB
     classDef store fill:#2B2B30,stroke:#444,color:#EEEEF1;
     class User,DASH io;
     class UI,Sidebar,Factory,BE,DE,EV,MODELS core;
-    class OC,GC,GMC,TEL,ST store;
+    class OC,GC,GMC,ORC,TEL,ST store;
 ```
 
 ### Agent roles
@@ -96,7 +98,7 @@ Every score is round-tripped through `LlmScores` (Pydantic) so a hallucinated
 
 ---
 
-## Why three backends?
+## Why four backends?
 
 Early MADS shipped with two — local Ollama and cloud Groq. Both broke in
 realistic usage:
@@ -121,7 +123,7 @@ a third backend and tuning the existing two resolves it.
 | Ollama timeouts | `GENERATE_TIMEOUT` raised 120s → 300s; `llama3.2:1b` surfaced as the recommended fast fallback |
 | Sub-pages had no sidebar | Sidebar extracted to `core/sidebar.py` and called from every page so direct navigation works |
 
-The three backends are interchangeable: any of them satisfies the same
+All four backends are interchangeable: any of them satisfies the same
 `generate / generate_json / list_models / check_connection` interface, so the
 debate engine, baseline engine, and evaluator never branch on the provider.
 
@@ -131,10 +133,11 @@ debate engine, baseline engine, and evaluator never branch on the provider.
 
 | Backend | Model | Avg latency / call | 4-step debate |
 |---|---|---|---|
-| Ollama (CPU laptop) | `llama3.2` (3B Q4) | ~25–60 s | ~2–4 min |
-| Ollama (CPU laptop) | `llama3.2:1b` (1B Q4) | ~6–15 s | ~30–60 s |
+| Ollama (CPU laptop) | `qwen3.5:4b` | ~20–45 s | ~1.5–3 min |
+| Ollama (CPU laptop) | `llama3.2:1b` | ~6–15 s | ~30–60 s |
 | Groq | `llama-3.3-70b-versatile` | ~1.0–1.5 s | ~5–8 s |
-| Gemini | `gemini-2.0-flash` | ~0.8–1.2 s | ~4–7 s |
+| Gemini | `gemini-2.0-flash-lite` | ~0.6–1.0 s | ~3–5 s |
+| OpenRouter | `meta-llama/llama-3.3-70b-instruct:free` | ~1.5–3 s | ~7–12 s |
 
 Numbers are wall-clock against my dev machine and the public free tiers,
 captured from `data/logs/llm_calls.jsonl`. Run a few questions and your
