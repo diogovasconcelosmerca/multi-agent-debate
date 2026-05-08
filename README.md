@@ -1,8 +1,12 @@
 # MADS — Multi-Agent Debate System
 
-> **Better answers, by debate.** A research platform that pits a single-agent LLM
-> baseline against a structured propose / critique / revise / judge pipeline,
-> and measures whether the debate is actually worth it.
+> **Does multi-agent debate produce measurably better LLM answers than a single agent?**
+> MADS runs a single-agent baseline and a four-step propose / critique / revise / judge
+> debate side-by-side, scores both with an LLM-as-judge plus deterministic heuristics,
+> and persists every run for cross-experiment analysis. Three interchangeable backends
+> (Ollama, Groq, Gemini), Pydantic-validated outputs, structured telemetry, and a
+> golden-dataset eval suite — production-shape engineering applied to a research
+> question.
 
 **🔗 Live demo:** [multi-agent-debate-2ty8uxwnqifhnrprgn3gcp.streamlit.app](https://multi-agent-debate-2ty8uxwnqifhnrprgn3gcp.streamlit.app/)
 
