@@ -44,7 +44,7 @@ def _load_secret(name: str) -> str:
 # ---------------------------------------------------------------------------
 # Ollama (local backend)
 # ---------------------------------------------------------------------------
-OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_BASE_URL = _load_secret("OLLAMA_BASE_URL") or "http://localhost:11434"
 DEFAULT_MODEL = "qwen3.5:4b"
 # Smaller fallback that runs comfortably on CPU-only laptops. qwen3.5
 # leads the open-weight 4B class on reasoning benchmarks as of late

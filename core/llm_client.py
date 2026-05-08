@@ -54,6 +54,9 @@ class OllamaClient:
     def __init__(self, base_url: str = OLLAMA_BASE_URL):
         self.base_url = base_url.rstrip("/")
         self._session = requests.Session()
+        # No-op against a localhost Ollama, but bypasses ngrok's free-tier
+        # browser interstitial when `base_url` points at an ngrok tunnel.
+        self._session.headers["ngrok-skip-browser-warning"] = "true"
 
     def check_connection(self) -> bool:
         try:

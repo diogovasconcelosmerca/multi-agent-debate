@@ -24,6 +24,7 @@ from core.config import (
     GROQ_API_KEY,
     GROQ_DEFAULT_MODEL,
     MAX_DEBATE_ROUNDS,
+    OLLAMA_BASE_URL,
     OLLAMA_FAST_MODEL,
     TASK_DOMAINS,
 )
@@ -116,7 +117,21 @@ def render_sidebar() -> dict:
         client = None
 
         if backend_id == "ollama":
-            client = OllamaClient()
+            sidebar_label("Ollama server URL")
+            ollama_url = st.text_input(
+                "ollama_url",
+                value=st.session_state.get("ollama_base_url", OLLAMA_BASE_URL),
+                placeholder="http://localhost:11434",
+                label_visibility="collapsed",
+                key="sb_ollama_url",
+                help=(
+                    "Local default is fine when running on your machine. "
+                    "On Streamlit Cloud, paste an ngrok / Cloudflare tunnel "
+                    "URL pointing at your home Ollama (see README)."
+                ),
+            )
+            st.session_state["ollama_base_url"] = ollama_url
+            client = OllamaClient(ollama_url or OLLAMA_BASE_URL)
             st.session_state["groq_api_key"] = ""
             st.session_state["gemini_api_key"] = ""
 
