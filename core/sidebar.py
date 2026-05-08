@@ -44,33 +44,61 @@ def _default_model_for(backend_id: str) -> str:
     }[backend_id]
 
 
+def _try_page_link(*paths: str, label: str, icon: str) -> bool:
+    """
+    Try `st.page_link` against each candidate path until one succeeds.
+
+    `st.page_link` raises StreamlitPageNotFoundError when the path
+    isn't a registered page; the entry script's filename varies
+    (`Home.py` locally, `app.py` / `streamlit_app.py` via Cloud
+    shims), so we try them in order and stop on the first hit.
+    """
+    for path in paths:
+        try:
+            st.page_link(path, label=label, icon=icon)
+            return True
+        except Exception:
+            continue
+    return False
+
+
 def _nav(active: str | None = None) -> None:
     """
-    Render the four sidebar nav links as plain HTML anchors.
+    Render the four sidebar nav links via `st.page_link`.
 
-    Plain anchors go through Streamlit's URL router and therefore work
-    no matter which entry script is registered (`Home.py`, `app.py`,
-    or `streamlit_app.py`). `st.page_link` cannot do this — it
-    validates the script-path argument against Streamlit's registered
-    pages, which fails when the entry is the `app.py` shim.
+    Using Streamlit's native page-link widget gives us **client-side
+    routing**: clicking a link reruns the new page's script in place
+    instead of forcing a full browser reload, which eliminates the
+    white flash users saw between tabs with plain HTML anchors.
 
-    `active` is one of "home" | "chat" | "runner" | "dashboard"; pass
-    `None` (default) to skip the active-state styling.
+    The home link is the awkward one — its path depends on whichever
+    entry script Streamlit was launched with. We probe `Home.py`,
+    `app.py`, and `streamlit_app.py` in order and use the first one
+    that resolves, so the same code works under any of the three
+    entry filenames.
+
+    `active` (one of "home" | "chat" | "runner" | "dashboard") is
+    accepted for API stability with the previous anchor-based nav,
+    but Streamlit highlights the current page on its own — we just
+    pass it through.
     """
-    items = [
-        ("home",      "/",                    "Home"),
-        ("chat",      "/Interactive_Chat",    "Interactive Chat"),
-        ("runner",    "/Experiment_Runner",   "Experiment Runner"),
-        ("dashboard", "/Results_Dashboard",   "Results Dashboard"),
-    ]
-    parts = ['<nav class="m-nav">']
-    for key, href, label in items:
-        cls = "m-nav-item" + (" m-nav-active" if key == active else "")
-        parts.append(
-            f'<a class="{cls}" href="{href}" target="_self">{label}</a>'
-        )
-    parts.append("</nav>")
-    st.sidebar.markdown("".join(parts), unsafe_allow_html=True)
+    del active  # Streamlit handles aria-current on its own.
+    _try_page_link(
+        "Home.py", "app.py", "streamlit_app.py",
+        label="Home", icon=":material/home:",
+    )
+    st.page_link(
+        "pages/1_Interactive_Chat.py",
+        label="Interactive Chat", icon=":material/forum:",
+    )
+    st.page_link(
+        "pages/2_Experiment_Runner.py",
+        label="Experiment Runner", icon=":material/science:",
+    )
+    st.page_link(
+        "pages/3_Results_Dashboard.py",
+        label="Results Dashboard", icon=":material/analytics:",
+    )
 
 
 def _smart_default_backend() -> str:
@@ -175,10 +203,22 @@ def render_sidebar(active_page: str | None = None) -> dict:
 
         if not connected:
             if backend_id == "ollama":
-                sidebar_hint(
-                    f"Run <code>ollama serve</code>, then "
-                    f"<code>ollama pull {OLLAMA_FAST_MODEL}</code>."
-                )
+                # Context-aware: if a cloud key is configured we're
+                # almost certainly running on Streamlit Cloud, where
+                # Ollama can never connect. Tell the user to switch
+                # backend rather than to start a daemon they can't run.
+                if GEMINI_API_KEY or GROQ_API_KEY:
+                    sidebar_hint(
+                        "Ollama needs a daemon on the same machine as "
+                        "the app — it can't run on Streamlit Cloud. "
+                        "Switch to <strong>Gemini</strong> or "
+                        "<strong>Groq</strong> above."
+                    )
+                else:
+                    sidebar_hint(
+                        f"Run <code>ollama serve</code>, then "
+                        f"<code>ollama pull {OLLAMA_FAST_MODEL}</code>."
+                    )
             elif backend_id == "groq":
                 sidebar_hint("Free key at <code>console.groq.com</code>.")
             else:
