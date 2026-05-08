@@ -449,6 +449,164 @@ class GeminiClient:
 # Shared helpers
 # -----------------------------------------------------------------------
 
+# -----------------------------------------------------------------------
+# OpenRouter backend (cloud aggregator — generous free models)
+# -----------------------------------------------------------------------
+
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+# Free models on OpenRouter as of 2026. The ":free" suffix selects the
+# zero-cost variant; the same names without the suffix are paid.
+OPENROUTER_MODELS = [
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "qwen/qwen-2.5-72b-instruct:free",
+    "mistralai/mistral-7b-instruct:free",
+    "google/gemma-2-9b-it:free",
+    "microsoft/phi-3-medium-128k-instruct:free",
+]
+
+
+class OpenRouterClient:
+    """Synchronous client for OpenRouter (OpenAI-compatible aggregator).
+
+    OpenRouter routes a single OpenAI-compatible API to dozens of
+    open-weight models from many providers. Models with the ``:free``
+    suffix incur no token cost, making this the closest cloud
+    substitute for running Ollama locally.
+    """
+
+    BACKEND = "openrouter"
+    DISPLAY_NAME = "OpenRouter"
+
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self._session = requests.Session()
+        self._session.headers.update({
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            # OpenRouter asks for a referrer so they can show usage
+            # attribution. Sending the repo URL is informative without
+            # leaking anything sensitive.
+            "HTTP-Referer": "https://github.com/diogovasconcelosmerca/multi-agent-debate",
+            "X-Title": "MADS - Multi-Agent Debate",
+        })
+
+    def check_connection(self) -> bool:
+        try:
+            resp = self._session.get(
+                "https://openrouter.ai/api/v1/auth/key",
+                timeout=8,
+            )
+            return resp.status_code == 200
+        except (requests.ConnectionError, requests.Timeout):
+            return False
+
+    def list_models(self) -> list[str]:
+        try:
+            resp = self._session.get(
+                "https://openrouter.ai/api/v1/models",
+                timeout=8,
+            )
+            resp.raise_for_status()
+            data = resp.json().get("data", [])
+            free = [m["id"] for m in data if m.get("id", "").endswith(":free")]
+            # Surface the curated default list at the top, then any
+            # other free models the API exposes.
+            preferred = [m for m in OPENROUTER_MODELS if m in free]
+            extras = sorted(m for m in free if m not in preferred)
+            return preferred + extras or list(OPENROUTER_MODELS)
+        except Exception:
+            return list(OPENROUTER_MODELS)
+
+    def generate(
+        self,
+        prompt: str,
+        model: str,
+        system: str = "",
+        temperature: float = 0.7,
+        timeout: int = GENERATE_TIMEOUT,
+        role: str = "agent",
+    ) -> str:
+        messages: list[dict] = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": 1024,
+        }
+
+        prompt_chars = len(prompt) + len(system)
+        with record_llm_call("openrouter", model, role, prompt_chars) as ctx:
+            attempt = 0
+            while True:
+                try:
+                    resp = self._session.post(
+                        OPENROUTER_API_URL,
+                        json=payload,
+                        timeout=timeout,
+                    )
+                    resp.raise_for_status()
+                    text = resp.json()["choices"][0]["message"]["content"]
+                    ctx["response"] = text
+                    return text
+                except requests.ConnectionError as exc:
+                    ctx["status"] = "error"
+                    raise LlmConnectionError(
+                        "Cannot connect to OpenRouter API. Check your internet."
+                    ) from exc
+                except requests.Timeout as exc:
+                    ctx["status"] = "timeout"
+                    raise LlmConnectionError(
+                        f"OpenRouter request timed out after {timeout}s."
+                    ) from exc
+                except requests.HTTPError as exc:
+                    status = getattr(exc.response, "status_code", "?")
+                    body = getattr(exc.response, "text", "")[:300]
+                    if status == 429 and attempt < _RATE_LIMIT_RETRIES:
+                        time.sleep(_RATE_LIMIT_BACKOFF_S[attempt])
+                        attempt += 1
+                        continue
+                    ctx["status"] = "error"
+                    if status == 401:
+                        raise LlmConnectionError(
+                            "Invalid OpenRouter API key. Get one free at "
+                            "openrouter.ai/keys."
+                        ) from exc
+                    if status == 402:
+                        raise LlmConnectionError(
+                            "OpenRouter says this model needs credits. "
+                            "Pick a model whose name ends in `:free`."
+                        ) from exc
+                    if status == 429:
+                        raise LlmConnectionError(
+                            "OpenRouter rate limit reached. Wait a minute "
+                            "or switch model."
+                        ) from exc
+                    raise LlmConnectionError(
+                        f"OpenRouter API error ({status}): {body}"
+                    ) from exc
+
+    def generate_json(
+        self,
+        prompt: str,
+        model: str,
+        system: str = "",
+        temperature: float = 0.2,
+        timeout: int = GENERATE_TIMEOUT,
+        role: str = "evaluator",
+    ) -> dict:
+        full_prompt = prompt + "\n\nReturn ONLY valid JSON. No extra text."
+        raw = self.generate(
+            prompt=full_prompt, model=model, system=system,
+            temperature=temperature, timeout=timeout, role=role,
+        )
+        return _parse_json(raw)
+
+
 def _extract_gemini_text(data: dict) -> str:
     """Pull the response text out of a Gemini generateContent payload.
 
@@ -506,7 +664,7 @@ def _parse_json(raw: str) -> dict:
 def get_client(
     backend: str = "ollama",
     api_key: str = "",
-) -> OllamaClient | GroqClient | GeminiClient:
+) -> OllamaClient | GroqClient | GeminiClient | OpenRouterClient:
     """Factory function to create the appropriate LLM client."""
     backend = (backend or "ollama").lower()
     if backend == "groq":
@@ -522,4 +680,11 @@ def get_client(
                 "aistudio.google.com/app/apikey."
             )
         return GeminiClient(api_key)
+    if backend == "openrouter":
+        if not api_key:
+            raise LlmConnectionError(
+                "OpenRouter API key is required. Get one free at "
+                "openrouter.ai/keys."
+            )
+        return OpenRouterClient(api_key)
     return OllamaClient()

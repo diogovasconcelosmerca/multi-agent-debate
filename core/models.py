@@ -28,7 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, field_validat
 
 from core.config import EVALUATION_DIMENSIONS
 
-Backend = Literal["ollama", "groq", "gemini"]
+Backend = Literal["ollama", "groq", "gemini", "openrouter"]
 Winner = Literal["debate", "baseline", "tie"]
 
 

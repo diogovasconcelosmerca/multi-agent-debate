@@ -25,9 +25,11 @@ from core.config import (
     GROQ_DEFAULT_MODEL,
     MAX_DEBATE_ROUNDS,
     OLLAMA_FAST_MODEL,
+    OPENROUTER_API_KEY,
+    OPENROUTER_DEFAULT_MODEL,
     TASK_DOMAINS,
 )
-from core.llm_client import GeminiClient, GroqClient, OllamaClient
+from core.llm_client import GeminiClient, GroqClient, OllamaClient, OpenRouterClient
 from core.theme import (
     sidebar_brand,
     sidebar_hint,
@@ -41,6 +43,7 @@ def _default_model_for(backend_id: str) -> str:
         "ollama": DEFAULT_MODEL,
         "groq": GROQ_DEFAULT_MODEL,
         "gemini": GEMINI_DEFAULT_MODEL,
+        "openrouter": OPENROUTER_DEFAULT_MODEL,
     }[backend_id]
 
 
@@ -108,13 +111,17 @@ def _smart_default_backend() -> str:
     On Streamlit Community Cloud there is no Ollama daemon to talk to,
     so the historical "ollama" default lands the user on an offline
     page. If a cloud key has been provisioned via secrets/env we prefer
-    that backend instead, with Gemini ranked above Groq because its
-    free tier is more forgiving.
+    that backend instead. Order by free-tier generosity:
+      Gemini   — most generous (1M tokens/day on flash-lite)
+      Groq     — fastest cloud inference
+      OpenRouter — open-weight cloud substitute for Ollama
     """
     if GEMINI_API_KEY:
         return "gemini"
     if GROQ_API_KEY:
         return "groq"
+    if OPENROUTER_API_KEY:
+        return "openrouter"
     return "ollama"
 
 
@@ -160,6 +167,7 @@ def render_sidebar(active_page: str | None = None) -> dict:
             client = OllamaClient()
             st.session_state["groq_api_key"] = ""
             st.session_state["gemini_api_key"] = ""
+            st.session_state["openrouter_api_key"] = ""
 
         elif backend_id == "groq":
             sidebar_label("Groq API key")
@@ -173,6 +181,7 @@ def render_sidebar(active_page: str | None = None) -> dict:
             )
             st.session_state["groq_api_key"] = groq_key
             st.session_state["gemini_api_key"] = ""
+            st.session_state["openrouter_api_key"] = ""
             if groq_key:
                 client = GroqClient(groq_key)
 
@@ -188,8 +197,25 @@ def render_sidebar(active_page: str | None = None) -> dict:
             )
             st.session_state["gemini_api_key"] = gem_key
             st.session_state["groq_api_key"] = ""
+            st.session_state["openrouter_api_key"] = ""
             if gem_key:
                 client = GeminiClient(gem_key)
+
+        elif backend_id == "openrouter":
+            sidebar_label("OpenRouter API key")
+            or_key = st.text_input(
+                "or_key",
+                value=st.session_state.get("openrouter_api_key", OPENROUTER_API_KEY),
+                type="password",
+                placeholder="sk-or-...",
+                label_visibility="collapsed",
+                key="sb_or_key",
+            )
+            st.session_state["openrouter_api_key"] = or_key
+            st.session_state["groq_api_key"] = ""
+            st.session_state["gemini_api_key"] = ""
+            if or_key:
+                client = OpenRouterClient(or_key)
 
         # --- Connection status -----------------------------------------
         connected = False
@@ -203,16 +229,17 @@ def render_sidebar(active_page: str | None = None) -> dict:
 
         if not connected:
             if backend_id == "ollama":
-                # Context-aware: if a cloud key is configured we're
-                # almost certainly running on Streamlit Cloud, where
-                # Ollama can never connect. Tell the user to switch
-                # backend rather than to start a daemon they can't run.
-                if GEMINI_API_KEY or GROQ_API_KEY:
+                # Context-aware: if any cloud key is configured we're
+                # almost certainly on Streamlit Cloud, where Ollama can
+                # never connect. Tell the user to switch backend
+                # rather than to start a daemon they can't run.
+                if GEMINI_API_KEY or GROQ_API_KEY or OPENROUTER_API_KEY:
                     sidebar_hint(
                         "Ollama needs a daemon on the same machine as "
                         "the app — it can't run on Streamlit Cloud. "
-                        "Switch to <strong>Gemini</strong> or "
-                        "<strong>Groq</strong> above."
+                        "Switch to <strong>Gemini</strong>, "
+                        "<strong>Groq</strong>, or "
+                        "<strong>OpenRouter</strong> above."
                     )
                 else:
                     sidebar_hint(
@@ -221,9 +248,14 @@ def render_sidebar(active_page: str | None = None) -> dict:
                     )
             elif backend_id == "groq":
                 sidebar_hint("Free key at <code>console.groq.com</code>.")
-            else:
+            elif backend_id == "gemini":
                 sidebar_hint(
                     "Free key at <code>aistudio.google.com/app/apikey</code>."
+                )
+            else:  # openrouter
+                sidebar_hint(
+                    "Free key at <code>openrouter.ai/keys</code>. "
+                    "Use models tagged <code>:free</code> for zero cost."
                 )
 
         # --- Model ------------------------------------------------------

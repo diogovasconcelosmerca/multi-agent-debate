@@ -68,6 +68,14 @@ GEMINI_API_KEY = _load_secret("GEMINI_API_KEY")
 GEMINI_DEFAULT_MODEL = "gemini-2.0-flash-lite"
 
 # ---------------------------------------------------------------------------
+# OpenRouter (cloud aggregator — generous free models)
+# ---------------------------------------------------------------------------
+OPENROUTER_API_KEY = _load_secret("OPENROUTER_API_KEY")
+# Llama 3.3 70B :free is the strongest free open-weight model on the
+# platform as of 2026. Closest cloud substitute for a self-hosted Ollama.
+OPENROUTER_DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
+
+# ---------------------------------------------------------------------------
 # Backend metadata (used by the sidebar UI)
 # ---------------------------------------------------------------------------
 BACKENDS = {
@@ -88,6 +96,12 @@ BACKENDS = {
         "label": "Gemini",
         "tagline": "Cloud · Generous free tier",
         "help": "Google AI Studio. Get a key at aistudio.google.com/app/apikey.",
+    },
+    "openrouter": {
+        "id": "openrouter",
+        "label": "OpenRouter",
+        "tagline": "Cloud · Open-weight models",
+        "help": "Aggregator with free :free-tagged variants of Llama, Qwen, Mistral. Get a key at openrouter.ai/keys.",
     },
 }
 
