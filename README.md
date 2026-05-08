@@ -4,6 +4,9 @@
 > baseline against a structured propose / critique / revise / judge pipeline,
 > and measures whether the debate is actually worth it.
 
+**🔗 Live demo:** [multi-agent-debate-2ty8uxwnqifhnrprgn3gcp.streamlit.app](https://multi-agent-debate-2ty8uxwnqifhnrprgn3gcp.streamlit.app/)
+
+[![Live demo](https://img.shields.io/badge/Live_demo-streamlit.app-FF4B4B?logo=streamlit&logoColor=white)](https://multi-agent-debate-2ty8uxwnqifhnrprgn3gcp.streamlit.app/)
 [![CI](https://github.com/diogovasconcelosmerca/multi-agent-debate/actions/workflows/ci.yml/badge.svg)](https://github.com/diogovasconcelosmerca/multi-agent-debate/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.30+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
