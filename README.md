@@ -198,14 +198,19 @@ streamlit run Home.py
 
 ### Option D — Streamlit Community Cloud
 
-1. Fork on GitHub
-2. [share.streamlit.io](https://share.streamlit.io) → connect → deploy `Home.py`
-3. **Advanced settings → Secrets**:
+1. Fork on GitHub.
+2. [share.streamlit.io](https://share.streamlit.io) → connect → deploy.
+   The **main file** can be `Home.py` (the canonical entry) or
+   `app.py` / `streamlit_app.py` (compatibility shims that run Home);
+   any of the three works.
+3. **Advanced settings → Secrets** — add at least one cloud key:
    ```toml
-   GROQ_API_KEY   = "gsk_..."
-   GEMINI_API_KEY = "AIza..."
+   GEMINI_API_KEY = "AIza..."   # recommended — most generous free tier
+   GROQ_API_KEY   = "gsk_..."   # optional second backend
    ```
-4. Click **Deploy**.
+4. Click **Deploy**. The sidebar auto-selects the first cloud backend
+   for which a key is present, so a freshly deployed instance is
+   ready to debate the moment it boots — no Ollama needed.
 
 ---
 

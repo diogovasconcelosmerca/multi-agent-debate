@@ -44,6 +44,23 @@ def _default_model_for(backend_id: str) -> str:
     }[backend_id]
 
 
+def _smart_default_backend() -> str:
+    """
+    Pick the most useful default backend for the current environment.
+
+    On Streamlit Community Cloud there is no Ollama daemon to talk to,
+    so the historical "ollama" default lands the user on an offline
+    page. If a cloud key has been provisioned via secrets/env we prefer
+    that backend instead, with Gemini ranked above Groq because its
+    free tier is more forgiving.
+    """
+    if GEMINI_API_KEY:
+        return "gemini"
+    if GROQ_API_KEY:
+        return "groq"
+    return "ollama"
+
+
 def render_sidebar() -> dict:
     """
     Draw the shared sidebar and store the resulting state in session.
@@ -63,7 +80,7 @@ def render_sidebar() -> dict:
             format_func=lambda bid: BACKENDS[bid]["label"],
             label_visibility="collapsed",
             index=list(BACKENDS.keys()).index(
-                st.session_state.get("backend", "ollama")
+                st.session_state.get("backend", _smart_default_backend())
             ),
             key="sb_backend",
         )
