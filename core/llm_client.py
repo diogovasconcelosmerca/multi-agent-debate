@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from typing import Any
 
 import requests
@@ -23,6 +24,13 @@ from core.config import GENERATE_TIMEOUT, OLLAMA_BASE_URL
 from core.telemetry import record_llm_call
 
 logger = logging.getLogger(__name__)
+
+
+# Sliding-window retry budget for rate-limited cloud calls. The free
+# tiers we target (Groq, Gemini) cap us per minute; one debate fires
+# ~10 calls in 20 s so a brief pause is usually enough to recover.
+_RATE_LIMIT_RETRIES = 2
+_RATE_LIMIT_BACKOFF_S = (4, 10)  # progressive: 4 s, then 10 s
 
 
 class LlmConnectionError(RuntimeError):
@@ -202,47 +210,55 @@ class GroqClient:
 
         prompt_chars = len(prompt) + len(system)
         with record_llm_call("groq", model, role, prompt_chars) as ctx:
-            try:
-                resp = self._session.post(
-                    GROQ_API_URL,
-                    json=payload,
-                    timeout=timeout,
-                )
-                resp.raise_for_status()
-                text = resp.json()["choices"][0]["message"]["content"]
-                ctx["response"] = text
-                return text
-            except requests.ConnectionError as exc:
-                ctx["status"] = "error"
-                raise LlmConnectionError(
-                    "Cannot connect to Groq API. Check your internet connection."
-                ) from exc
-            except requests.Timeout as exc:
-                ctx["status"] = "timeout"
-                raise LlmConnectionError(
-                    f"Groq request timed out after {timeout}s."
-                ) from exc
-            except requests.HTTPError as exc:
-                ctx["status"] = "error"
-                status = getattr(exc.response, "status_code", "?")
-                body = getattr(exc.response, "text", "")[:200]
-                if status == 401:
+            attempt = 0
+            while True:
+                try:
+                    resp = self._session.post(
+                        GROQ_API_URL,
+                        json=payload,
+                        timeout=timeout,
+                    )
+                    resp.raise_for_status()
+                    text = resp.json()["choices"][0]["message"]["content"]
+                    ctx["response"] = text
+                    return text
+                except requests.ConnectionError as exc:
+                    ctx["status"] = "error"
                     raise LlmConnectionError(
-                        "Invalid Groq API key. Get one free at console.groq.com."
+                        "Cannot connect to Groq API. Check your internet connection."
                     ) from exc
-                if status == 429:
+                except requests.Timeout as exc:
+                    ctx["status"] = "timeout"
                     raise LlmConnectionError(
-                        "Groq rate limit reached. Wait a moment, switch model, "
-                        "or try the Gemini backend."
+                        f"Groq request timed out after {timeout}s."
                     ) from exc
-                if status in (402, 403):
+                except requests.HTTPError as exc:
+                    status = getattr(exc.response, "status_code", "?")
+                    body = getattr(exc.response, "text", "")[:200]
+                    if status == 429 and attempt < _RATE_LIMIT_RETRIES:
+                        wait = _RATE_LIMIT_BACKOFF_S[attempt]
+                        logger.info("Groq 429 — backing off %ss (attempt %d)", wait, attempt + 1)
+                        time.sleep(wait)
+                        attempt += 1
+                        continue
+                    ctx["status"] = "error"
+                    if status == 401:
+                        raise LlmConnectionError(
+                            "Invalid Groq API key. Get one free at console.groq.com."
+                        ) from exc
+                    if status == 429:
+                        raise LlmConnectionError(
+                            "Groq rate limit reached even after retries. "
+                            "Wait a minute, switch model, or try Gemini."
+                        ) from exc
+                    if status in (402, 403):
+                        raise LlmConnectionError(
+                            "Groq quota exhausted on this key. Try the Gemini "
+                            "backend or a local Ollama model."
+                        ) from exc
                     raise LlmConnectionError(
-                        "Groq quota exhausted on this key. Try the Gemini "
-                        "backend or a local Ollama model."
+                        f"Groq API error ({status}): {body}"
                     ) from exc
-                raise LlmConnectionError(
-                    f"Groq API error ({status}): {body}"
-                ) from exc
 
     def generate_json(
         self,
@@ -354,47 +370,60 @@ class GeminiClient:
         url = f"{GEMINI_API_BASE}/models/{model}:generateContent"
         prompt_chars = len(prompt) + len(system)
         with record_llm_call("gemini", model, role, prompt_chars) as ctx:
-            try:
-                resp = self._session.post(
-                    url, params=self._params(), json=payload, timeout=timeout,
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                text = _extract_gemini_text(data)
-                ctx["response"] = text
-                return text
-            except requests.ConnectionError as exc:
-                ctx["status"] = "error"
-                raise LlmConnectionError(
-                    "Cannot connect to Gemini API. Check your internet connection."
-                ) from exc
-            except requests.Timeout as exc:
-                ctx["status"] = "timeout"
-                raise LlmConnectionError(
-                    f"Gemini request timed out after {timeout}s."
-                ) from exc
-            except requests.HTTPError as exc:
-                ctx["status"] = "error"
-                status = getattr(exc.response, "status_code", "?")
-                body = getattr(exc.response, "text", "")[:300]
-                if status in (400, 401, 403) and "API key" in body:
+            attempt = 0
+            while True:
+                try:
+                    resp = self._session.post(
+                        url, params=self._params(), json=payload, timeout=timeout,
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                    text = _extract_gemini_text(data)
+                    ctx["response"] = text
+                    return text
+                except requests.ConnectionError as exc:
+                    ctx["status"] = "error"
                     raise LlmConnectionError(
-                        "Invalid Gemini API key. Get one free at "
-                        "aistudio.google.com/app/apikey."
+                        "Cannot connect to Gemini API. Check your internet connection."
                     ) from exc
-                if status == 429:
+                except requests.Timeout as exc:
+                    ctx["status"] = "timeout"
                     raise LlmConnectionError(
-                        "Gemini rate limit reached on the free tier. "
-                        "Wait a minute or switch to a flash-lite model."
+                        f"Gemini request timed out after {timeout}s."
                     ) from exc
-                if status == 404:
+                except requests.HTTPError as exc:
+                    status = getattr(exc.response, "status_code", "?")
+                    body = getattr(exc.response, "text", "")[:300]
+                    # 429: respect the per-minute rate limit by sleeping
+                    # then retrying. The free-tier window is 60 s, but
+                    # short backoffs usually clear quota for the next
+                    # debate step.
+                    if status == 429 and attempt < _RATE_LIMIT_RETRIES:
+                        wait = _RATE_LIMIT_BACKOFF_S[attempt]
+                        logger.info("Gemini 429 — backing off %ss (attempt %d)", wait, attempt + 1)
+                        time.sleep(wait)
+                        attempt += 1
+                        continue
+                    ctx["status"] = "error"
+                    if status in (400, 401, 403) and "API key" in body:
+                        raise LlmConnectionError(
+                            "Invalid Gemini API key. Get one free at "
+                            "aistudio.google.com/app/apikey."
+                        ) from exc
+                    if status == 429:
+                        raise LlmConnectionError(
+                            "Gemini rate limit reached on the free tier even "
+                            "after retries. Wait ~60 s, switch to "
+                            "`gemini-2.0-flash-lite` (30 RPM), or try Groq."
+                        ) from exc
+                    if status == 404:
+                        raise LlmConnectionError(
+                            f"Gemini model `{model}` not found. Pick another from "
+                            "the model list."
+                        ) from exc
                     raise LlmConnectionError(
-                        f"Gemini model `{model}` not found. Pick another from "
-                        "the model list."
+                        f"Gemini API error ({status}): {body}"
                     ) from exc
-                raise LlmConnectionError(
-                    f"Gemini API error ({status}): {body}"
-                ) from exc
 
     def generate_json(
         self,

@@ -59,7 +59,10 @@ GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile"
 # Gemini (cloud backend — generous free tier)
 # ---------------------------------------------------------------------------
 GEMINI_API_KEY = _load_secret("GEMINI_API_KEY")
-GEMINI_DEFAULT_MODEL = "gemini-2.0-flash"
+# Flash-lite has 30 RPM on the free tier (vs 10 for plain flash). Each
+# debate fires ~10 LLM calls in a tight burst, so the higher RPM ceiling
+# matters more than the marginal quality bump from full flash.
+GEMINI_DEFAULT_MODEL = "gemini-2.0-flash-lite"
 
 # ---------------------------------------------------------------------------
 # Backend metadata (used by the sidebar UI)
