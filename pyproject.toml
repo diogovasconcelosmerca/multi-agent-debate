@@ -47,8 +47,13 @@ ignore = [
     "E501",   # line length (handled by formatter)
     "B008",   # function default args (Streamlit components rely on this)
     "RUF012", # mutable class attrs (Pydantic models are fine)
-    "RUF002", # en-dash / em-dash in docstrings is intentional
-    "RUF003", # likewise in comments
+    # Allow real typography (em/en-dashes, curly quotes, ellipsis) in
+    # string literals, docstrings, and comments. These end up in user-
+    # facing prompts, error messages, and tooltips where typography
+    # matters; RUF00{1,2,3} can't tell our intent from a homoglyph attack.
+    "RUF001",
+    "RUF002",
+    "RUF003",
     "RUF005", # `[a] + b` is fine for short lists
 ]
 
