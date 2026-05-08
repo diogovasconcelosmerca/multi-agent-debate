@@ -24,7 +24,6 @@ from core.config import (
     GROQ_API_KEY,
     GROQ_DEFAULT_MODEL,
     MAX_DEBATE_ROUNDS,
-    OLLAMA_BASE_URL,
     OLLAMA_FAST_MODEL,
     TASK_DOMAINS,
 )
@@ -45,6 +44,35 @@ def _default_model_for(backend_id: str) -> str:
     }[backend_id]
 
 
+def _nav(active: str | None = None) -> None:
+    """
+    Render the four sidebar nav links as plain HTML anchors.
+
+    Plain anchors go through Streamlit's URL router and therefore work
+    no matter which entry script is registered (`Home.py`, `app.py`,
+    or `streamlit_app.py`). `st.page_link` cannot do this — it
+    validates the script-path argument against Streamlit's registered
+    pages, which fails when the entry is the `app.py` shim.
+
+    `active` is one of "home" | "chat" | "runner" | "dashboard"; pass
+    `None` (default) to skip the active-state styling.
+    """
+    items = [
+        ("home",      "/",                    "Home"),
+        ("chat",      "/Interactive_Chat",    "Interactive Chat"),
+        ("runner",    "/Experiment_Runner",   "Experiment Runner"),
+        ("dashboard", "/Results_Dashboard",   "Results Dashboard"),
+    ]
+    parts = ['<nav class="m-nav">']
+    for key, href, label in items:
+        cls = "m-nav-item" + (" m-nav-active" if key == active else "")
+        parts.append(
+            f'<a class="{cls}" href="{href}" target="_self">{label}</a>'
+        )
+    parts.append("</nav>")
+    st.sidebar.markdown("".join(parts), unsafe_allow_html=True)
+
+
 def _smart_default_backend() -> str:
     """
     Pick the most useful default backend for the current environment.
@@ -62,9 +90,13 @@ def _smart_default_backend() -> str:
     return "ollama"
 
 
-def render_sidebar() -> dict:
+def render_sidebar(active_page: str | None = None) -> dict:
     """
     Draw the shared sidebar and store the resulting state in session.
+
+    `active_page` (one of "home" | "chat" | "runner" | "dashboard")
+    is used to highlight the current entry in the custom nav. Pass
+    `None` (default) to skip highlighting.
 
     Returns a snapshot dict with the connected client, backend id, model,
     and connection state — convenient for the calling page even though the
@@ -72,27 +104,7 @@ def render_sidebar() -> dict:
     """
     with st.sidebar:
         sidebar_brand()
-
-        # --- Custom navigation (replaces Streamlit's auto sidebar nav) --
-        # The auto nav reads filenames ("app", "Interactive Chat", ...).
-        # We hide it via CSS and render explicit page links here so the
-        # brand stays at the very top and labels are under our control.
-        st.page_link("Home.py", label="Home", icon=":material/home:")
-        st.page_link(
-            "pages/1_Interactive_Chat.py",
-            label="Interactive Chat",
-            icon=":material/forum:",
-        )
-        st.page_link(
-            "pages/2_Experiment_Runner.py",
-            label="Experiment Runner",
-            icon=":material/science:",
-        )
-        st.page_link(
-            "pages/3_Results_Dashboard.py",
-            label="Results Dashboard",
-            icon=":material/analytics:",
-        )
+        _nav(active_page)
 
         # --- Backend (vertical buttons via radio with custom CSS) -------
         sidebar_label("Backend")
@@ -117,21 +129,7 @@ def render_sidebar() -> dict:
         client = None
 
         if backend_id == "ollama":
-            sidebar_label("Ollama server URL")
-            ollama_url = st.text_input(
-                "ollama_url",
-                value=st.session_state.get("ollama_base_url", OLLAMA_BASE_URL),
-                placeholder="http://localhost:11434",
-                label_visibility="collapsed",
-                key="sb_ollama_url",
-                help=(
-                    "Local default is fine when running on your machine. "
-                    "On Streamlit Cloud, paste an ngrok / Cloudflare tunnel "
-                    "URL pointing at your home Ollama (see README)."
-                ),
-            )
-            st.session_state["ollama_base_url"] = ollama_url
-            client = OllamaClient(ollama_url or OLLAMA_BASE_URL)
+            client = OllamaClient()
             st.session_state["groq_api_key"] = ""
             st.session_state["gemini_api_key"] = ""
 

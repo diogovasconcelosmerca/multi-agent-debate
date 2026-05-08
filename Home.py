@@ -34,7 +34,7 @@ st.set_page_config(
 
 inject_premium_css()
 
-state = render_sidebar()
+state = render_sidebar(active_page="home")
 client = state["client"]
 connected = state["connected"]
 backend_meta = state["backend_meta"]

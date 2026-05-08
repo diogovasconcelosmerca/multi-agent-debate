@@ -30,7 +30,7 @@ from core.theme import (
 
 st.set_page_config(page_title="MADS — Dashboard", page_icon=favicon_uri(), layout="wide")
 inject_premium_css()
-render_sidebar()
+render_sidebar(active_page="dashboard")
 top_brand()
 
 PL = dict(

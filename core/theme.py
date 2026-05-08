@@ -518,35 +518,40 @@ section[data-testid="stSidebar"] .stRadio > div > label > div:first-child {{
 }}
 
 /* Hide Streamlit's auto-discovered sidebar nav (built from filenames).
-   We render our own with `st.page_link` below the brand so the layout
+   We render our own anchor-based `.m-nav` below the brand so the layout
    order is: brand → links → backend → … */
 section[data-testid="stSidebar"] [data-testid="stSidebarNav"],
 section[data-testid="stSidebar"] [data-testid="stSidebarNavSeparator"] {{
     display: none !important;
 }}
 
-/* Style the custom st.page_link entries to feel like real nav. */
-section[data-testid="stSidebar"] [data-testid="stPageLink-NavLink"],
-section[data-testid="stSidebar"] a[data-testid="stPageLink"] {{
+/* Custom anchor-based sidebar nav. Plain <a> instead of st.page_link
+   so the entry-script name (Home.py / app.py / streamlit_app.py)
+   doesn't matter; navigation is done via Streamlit's URL router. */
+section[data-testid="stSidebar"] .m-nav {{
+    display: flex; flex-direction: column; gap: 2px;
+    margin: 4px 0 14px 0;
+}}
+section[data-testid="stSidebar"] .m-nav .m-nav-item,
+section[data-testid="stSidebar"] .m-nav .m-nav-item:visited {{
+    display: block;
+    padding: 8px 12px;
     border-radius: 8px;
-    padding: 7px 12px !important;
-    margin: 1px 0;
-    font-size: 13px !important;
-    font-weight: 500 !important;
-    color: {C["text_2"]} !important;
+    border-left: 2px solid transparent;
+    font-size: 13px; font-weight: 500;
+    color: {C["text_2"]};
     text-decoration: none !important;
-    transition: all 0.15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
 }}
-section[data-testid="stSidebar"] [data-testid="stPageLink-NavLink"]:hover,
-section[data-testid="stSidebar"] a[data-testid="stPageLink"]:hover {{
-    background: {C["bg_hover"]} !important;
-    color: {C["text_1"]} !important;
+section[data-testid="stSidebar"] .m-nav .m-nav-item:hover {{
+    background: {C["bg_hover"]};
+    color: {C["text_1"]};
+    text-decoration: none !important;
 }}
-section[data-testid="stSidebar"] [data-testid="stPageLink-NavLink"][aria-current="page"],
-section[data-testid="stSidebar"] a[data-testid="stPageLink"][aria-current="page"] {{
+section[data-testid="stSidebar"] .m-nav .m-nav-active {{
     background: {C["accent"]}14 !important;
     color: {C["accent"]} !important;
-    border-left: 2px solid {C["accent"]};
+    border-left-color: {C["accent"]} !important;
 }}
 
 /* Sidebar custom blocks */

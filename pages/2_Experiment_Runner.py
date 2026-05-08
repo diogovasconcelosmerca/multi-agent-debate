@@ -23,7 +23,7 @@ from core.utils import format_timestamp, generate_experiment_id
 
 st.set_page_config(page_title="MADS — Experiments", page_icon=favicon_uri(), layout="wide")
 inject_premium_css()
-render_sidebar()
+render_sidebar(active_page="runner")
 top_brand()
 
 

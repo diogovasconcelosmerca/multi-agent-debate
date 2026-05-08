@@ -215,41 +215,10 @@ streamlit run Home.py
    for which a key is present, so a freshly deployed instance is
    ready to debate the moment it boots — no Ollama needed.
 
-### Option E — Cloud-deployed UI talking to your local Ollama (tunnel)
-
-Streamlit Cloud cannot reach `localhost:11434` on your laptop, but it
-can reach a public tunnel that points at your local Ollama. This lets
-you keep your debates fully local on your model — and free of cloud
-quotas — while using the cloud-hosted UI.
-
-```bash
-# 1. Install ngrok (free)
-#    https://ngrok.com/download   →   sign up   →   get auth token
-ngrok config add-authtoken <your_token>
-
-# 2. Make sure Ollama is running and serving the model you want
-ollama serve              # in one terminal
-ollama pull qwen3.5:4b    # if not already
-
-# 3. Open a tunnel — leave this terminal running while you use the app
-ngrok http 11434
-# copy the HTTPS forwarding URL, e.g. https://abc123.ngrok-free.app
-```
-
-Then in the **Streamlit Cloud** deployment, **⋯ → Settings → Secrets**:
-
-```toml
-OLLAMA_BASE_URL = "https://abc123.ngrok-free.app"
-```
-
-Save → the app re-arranges. In the sidebar, pick **Ollama** and the
-URL field will be pre-filled. You can also paste a different URL into
-the sidebar at any time without redeploying.
-
-> **Free-tier note.** Ngrok's free tier rotates the URL whenever you
-> restart `ngrok http`. For a stable URL either upgrade ngrok or use
-> Cloudflare Tunnel (`cloudflared tunnel --url http://localhost:11434`)
-> with a domain you control.
+> **Note on Ollama vs Streamlit Cloud.** Streamlit Cloud cannot reach
+> a model running on your laptop. Use the **Gemini** or **Groq**
+> backend on the cloud deploy; switch to **Ollama** when you run the
+> app locally with `streamlit run Home.py`.
 
 ---
 

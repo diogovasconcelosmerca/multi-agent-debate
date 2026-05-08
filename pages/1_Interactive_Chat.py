@@ -34,7 +34,7 @@ from core.utils import format_timestamp, generate_experiment_id
 
 st.set_page_config(page_title="MADS — Chat", page_icon=favicon_uri(), layout="wide")
 inject_premium_css()
-render_sidebar()
+render_sidebar(active_page="chat")
 top_brand()
 
 
