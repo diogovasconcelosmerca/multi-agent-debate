@@ -158,52 +158,94 @@ own dashboard will show real latency for your environment.
 
 ## Quick start
 
-Pick **one** backend. The app supports switching at runtime via the sidebar.
+There are **two ways** to use MADS:
 
-### Option A — Local with Ollama (fully offline)
+| | **Run it on your machine** | **Use the hosted version** |
+|---|---|---|
+| URL | `http://localhost:8501` | [streamlit.app live demo](https://multi-agent-debate-2ty8uxwnqifhnrprgn3gcp.streamlit.app/) |
+| Backends | Ollama (local), Groq, Gemini | Groq, Gemini (Ollama can't reach your laptop) |
+| Cost | Free; private | Free tier on Groq/Gemini |
+| Setup | ~5 min one-off, then `./run.ps1` | None — open the link |
+
+### One-command local launcher
+
+```powershell
+# Windows
+git clone https://github.com/diogovasconcelosmerca/multi-agent-debate.git
+cd multi-agent-debate
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r requirements.txt
+.\run.ps1                         # all subsequent runs
+```
+
+```bash
+# macOS / Linux
+git clone https://github.com/diogovasconcelosmerca/multi-agent-debate.git
+cd multi-agent-debate
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+./run.sh                          # all subsequent runs
+```
+
+`run.ps1` / `run.sh` activate the venv and start Streamlit in one
+step. Browser opens at `http://localhost:8501`.
+
+### Wire up your API keys (once)
+
+To skip pasting keys in the sidebar every time, drop them into
+`.streamlit/secrets.toml` (gitignored — never reaches the repo):
+
+```toml
+GROQ_API_KEY   = "gsk_..."        # https://console.groq.com (optional)
+GEMINI_API_KEY = "AIzaSy..."      # https://aistudio.google.com/app/apikey
+```
+
+Now the sidebar boots straight into "Connected · Gemini" (or Groq).
+Ollama is auto-detected from `localhost:11434`.
+
+### Detailed paths
+
+<details>
+<summary><strong>Option A — Local with Ollama (fully offline)</strong></summary>
 
 ```bash
 # Install Ollama: https://ollama.com/download
 
-# Pull a model. The 1B variant is fastest on CPU-only laptops.
+# Pull a model. The 4B variant of qwen3.5 is the current default.
+ollama pull qwen3.5:4b
+# or for the smallest CPU footprint:
 ollama pull llama3.2:1b
-# or for stronger reasoning:
-ollama pull llama3.2
 
-ollama serve     # leave running
-
-git clone https://github.com/diogovasconcelosmerca/multi-agent-debate.git
-cd multi-agent-debate
-python -m venv venv
-venv\Scripts\activate          # Windows
-# source venv/bin/activate     # macOS/Linux
-pip install -r requirements.txt
-streamlit run Home.py
+ollama serve     # leave running, then ./run.ps1 in another window
 ```
 
-### Option B — Cloud with Groq
+</details>
+
+<details>
+<summary><strong>Option B — Local with Groq (fast cloud, free tier)</strong></summary>
+
+Free key at <https://console.groq.com>. Either drop it into
+`.streamlit/secrets.toml` (recommended) or export it:
 
 ```bash
-# Free key at https://console.groq.com
 export GROQ_API_KEY=gsk_...     # PowerShell: $env:GROQ_API_KEY = "gsk_..."
-
-pip install -r requirements.txt
-streamlit run Home.py
-# In the sidebar: choose "Groq".
 ```
 
-### Option C — Cloud with Gemini (recommended free tier)
+</details>
 
-```bash
-# Free key at https://aistudio.google.com/app/apikey
-export GEMINI_API_KEY=AIza...
+<details>
+<summary><strong>Option C — Local with Gemini (recommended free tier)</strong></summary>
 
-pip install -r requirements.txt
-streamlit run Home.py
-# In the sidebar: choose "Gemini".
-```
+Free key at <https://aistudio.google.com/app/apikey>. Drop it into
+`.streamlit/secrets.toml`. The free tier is the most generous:
+`gemini-2.0-flash-lite` gives 30 RPM and 1 M tokens/day with no
+billing setup.
 
-### Option D — Streamlit Community Cloud
+</details>
+
+### Option D — Streamlit Community Cloud (deploy your own)
 
 1. Fork on GitHub.
 2. [share.streamlit.io](https://share.streamlit.io) → connect → deploy.
