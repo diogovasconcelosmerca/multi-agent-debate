@@ -369,17 +369,41 @@ _CSS = f"""
         {C["bg_app"]};
     color: {C["text_1"]};
 }}
-/* Hide Streamlit chrome — but keep the header element so the
-   sidebar collapse/expand button stays clickable. */
-#MainMenu, footer {{ visibility: hidden; }}
-.stDeployButton {{ display: none; }}
+/* Streamlit chrome — surgical hides only.
+
+   The toolbar (header right side) contains BOTH the deploy button AND
+   the sidebar-expand button. Hiding the whole toolbar — as an earlier
+   version of this stylesheet did — also hid the only way to reopen
+   the sidebar once collapsed. We now hide the individual leaves we
+   don't want and leave everything else rendered. */
+footer {{ display: none !important; }}
+[data-testid="stMainMenu"] {{ display: none !important; }}
+[data-testid="stAppDeployButton"] {{ display: none !important; }}
+.stDeployButton {{ display: none !important; }}
+
+/* Keep the header rendered so the sidebar-collapse and sidebar-expand
+   buttons keep their layout slot. Just make the header transparent so
+   it visually disappears against the page gradient. */
 header[data-testid="stHeader"] {{
-    background: transparent;
-    height: 2.5rem;
+    background: transparent !important;
+    box-shadow: none !important;
 }}
-header[data-testid="stHeader"] [data-testid="stToolbar"] {{ visibility: hidden; }}
-/* Ensure the sidebar reopen button is visible when collapsed. */
-[data-testid="stSidebarCollapsedControl"] {{ visibility: visible !important; }}
+
+/* Belt-and-braces: force the sidebar controls visible. The expand
+   button (Streamlit 1.33+) has a dedicated testid; the collapse
+   button lives inside the sidebar header. */
+[data-testid="stExpandSidebarButton"],
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarCollapseButton"] button,
+[data-testid="stSidebarHeader"] button {{
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 999999 !important;
+}}
+section[data-testid="stSidebar"] {{
+    visibility: visible !important;
+}}
 
 code, kbd, pre {{
     font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
