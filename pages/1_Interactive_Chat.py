@@ -92,14 +92,21 @@ STEPS = ["Proposal", "Critique", "Revision", "Judgment"]
 if run_baseline_btn or run_both_btn:
     if question:
         chat_message("You", "Question", question, align="right")
-        with st.status("Running baseline...", expanded=False) as status:
+        with st.status("Running baseline...", expanded=True) as status:
             try:
                 baseline_result = run_baseline(question, model, temperature, domain, client)
-                status.update(label=f"Baseline -- {baseline_result['elapsed_seconds']:.1f}s", state="complete")
+                status.update(
+                    label=f"Baseline — {baseline_result['elapsed_seconds']:.1f}s",
+                    state="complete", expanded=False,
+                )
                 st.session_state["baseline_result"] = baseline_result
             except LlmConnectionError as e:
-                status.update(label="Failed", state="error")
-                st.error(str(e))
+                status.update(label=f"Baseline failed — {e}", state="error", expanded=True)
+                st.error(
+                    f"**Backend error:** {e}\n\n"
+                    "Check the API key in the sidebar (or in Streamlit Cloud → "
+                    "Settings → Secrets) and pick a model the backend supports."
+                )
                 st.stop()
 
 # ---------------------------------------------------------------------------
@@ -178,7 +185,11 @@ if run_debate_btn or run_both_btn:
             st.session_state["debate_result"] = debate_result
         except LlmConnectionError as e:
             typing_ph.empty()
-            st.error(str(e))
+            st.error(
+                f"**Debate failed:** {e}\n\n"
+                "Check the API key in the sidebar (or in Streamlit Cloud → "
+                "Settings → Secrets) and pick a model the backend supports."
+            )
             st.stop()
 
 # ---------------------------------------------------------------------------

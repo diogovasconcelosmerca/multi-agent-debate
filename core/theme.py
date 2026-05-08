@@ -87,15 +87,16 @@ def section_header(title: str, subtitle: str = ""):
 
 def sidebar_brand():
     uri = _b64(_LOGO_SVG_RAW)
-    st.markdown(f'''
-    <div class="m-sb-brand">
-        <img src="{uri}" width="28" height="28" />
-        <div>
-            <div class="m-sb-brand-title">MADS</div>
-            <div class="m-sb-brand-sub">Multi-Agent Debate System</div>
-        </div>
-    </div>
-    ''', unsafe_allow_html=True)
+    html = (
+        f'<div class="m-sb-brand">'
+        f'<img src="{uri}" width="28" height="28" />'
+        f'<div>'
+        f'<div class="m-sb-brand-title">MADS</div>'
+        f'<div class="m-sb-brand-sub">Multi-Agent Debate System</div>'
+        f'</div>'
+        f'</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def sidebar_label(text: str):
@@ -127,7 +128,12 @@ def sidebar_hint(text: str):
 
 
 def chat_message(agent_name: str, role: str, content: str, time_s: float | None = None, align: str = "left"):
-    """Render a chat-bubble style message with fade-in animation."""
+    """Render a chat-bubble style message with fade-in animation.
+
+    The HTML below is emitted at column 0 deliberately — Streamlit's
+    Markdown processor treats 4-space-indented blocks as <code>, which
+    would render the bubble's HTML as raw text.
+    """
     color_map = {"Agent A": C["agent_a"], "Agent B": C["agent_b"], "Agent C": C["agent_c"], "You": C["text_2"]}
     color = color_map.get(agent_name, C["accent"])
     initial = agent_name[0] if agent_name else "?"
@@ -135,19 +141,20 @@ def chat_message(agent_name: str, role: str, content: str, time_s: float | None 
     safe = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
     align_cls = "m-chat-right" if align == "right" else ""
 
-    st.markdown(f'''
-    <div class="m-chat-msg m-fadein {align_cls}">
-        <div class="m-chat-avatar" style="background:{color}15;color:{color};border:1px solid {color}25;">{initial}</div>
-        <div class="m-chat-bubble">
-            <div class="m-chat-meta">
-                <span class="m-chat-name" style="color:{color};">{agent_name}</span>
-                <span class="m-chat-role">{role}</span>
-                {time_html}
-            </div>
-            <div class="m-chat-text">{safe}</div>
-        </div>
-    </div>
-    ''', unsafe_allow_html=True)
+    html = (
+        f'<div class="m-chat-msg m-fadein {align_cls}">'
+        f'<div class="m-chat-avatar" style="background:{color}15;color:{color};border:1px solid {color}25;">{initial}</div>'
+        f'<div class="m-chat-bubble">'
+        f'<div class="m-chat-meta">'
+        f'<span class="m-chat-name" style="color:{color};">{agent_name}</span>'
+        f'<span class="m-chat-role">{role}</span>'
+        f'{time_html}'
+        f'</div>'
+        f'<div class="m-chat-text">{safe}</div>'
+        f'</div>'
+        f'</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def agent_message(agent_name: str, role: str, content: str, time_s: float | None = None):
@@ -157,35 +164,37 @@ def agent_message(agent_name: str, role: str, content: str, time_s: float | None
     initial = agent_name[-1] if agent_name else "?"
     time_html = f'<span class="m-agent-time">{time_s:.1f}s</span>' if time_s is not None else ""
     safe = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
-    st.markdown(f'''
-    <div class="m-agent m-fadein" style="border-left-color:{color};">
-        <div class="m-agent-head">
-            <div class="m-agent-avatar" style="background:{color}18;color:{color};">{initial}</div>
-            <div class="m-agent-meta">
-                <span class="m-agent-name" style="color:{color};">{agent_name}</span>
-                <span class="m-agent-role">{role}</span>
-            </div>
-            {time_html}
-        </div>
-        <div class="m-agent-body">{safe}</div>
-    </div>
-    ''', unsafe_allow_html=True)
+    html = (
+        f'<div class="m-agent m-fadein" style="border-left-color:{color};">'
+        f'<div class="m-agent-head">'
+        f'<div class="m-agent-avatar" style="background:{color}18;color:{color};">{initial}</div>'
+        f'<div class="m-agent-meta">'
+        f'<span class="m-agent-name" style="color:{color};">{agent_name}</span>'
+        f'<span class="m-agent-role">{role}</span>'
+        f'</div>'
+        f'{time_html}'
+        f'</div>'
+        f'<div class="m-agent-body">{safe}</div>'
+        f'</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def typing_indicator(agent_name: str, action: str = "is thinking"):
     """Show a pulsing typing indicator."""
     color_map = {"Agent A": C["agent_a"], "Agent B": C["agent_b"], "Agent C": C["agent_c"]}
     color = color_map.get(agent_name, C["accent"])
-    st.markdown(f'''
-    <div class="m-typing">
-        <div class="m-typing-dots">
-            <span style="background:{color};"></span>
-            <span style="background:{color};"></span>
-            <span style="background:{color};"></span>
-        </div>
-        <span class="m-typing-text" style="color:{color};">{agent_name} {action}...</span>
-    </div>
-    ''', unsafe_allow_html=True)
+    html = (
+        f'<div class="m-typing">'
+        f'<div class="m-typing-dots">'
+        f'<span style="background:{color};"></span>'
+        f'<span style="background:{color};"></span>'
+        f'<span style="background:{color};"></span>'
+        f'</div>'
+        f'<span class="m-typing-text" style="color:{color};">{agent_name} {action}...</span>'
+        f'</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def step_indicator(steps: list[str], active: int = -1, completed: int = -1):
@@ -211,13 +220,15 @@ def metric_card(label: str, value: str, delta: str = "", color: str = ""):
     if delta:
         dc = C["success"] if delta.startswith("+") else C["error"] if delta.startswith("-") else C["text_3"]
         d_html = f'<div class="m-metric-delta" style="color:{dc};">{delta}</div>'
-    st.markdown(f'''
-    <div class="m-metric m-glass">
-        <div class="m-metric-label">{label}</div>
-        <div class="m-metric-value" style="color:{color or C["text_1"]};">{value}</div>
-        {d_html}
-    </div>
-    ''', unsafe_allow_html=True)
+    val_color = color or C["text_1"]
+    html = (
+        f'<div class="m-metric m-glass">'
+        f'<div class="m-metric-label">{label}</div>'
+        f'<div class="m-metric-value" style="color:{val_color};">{value}</div>'
+        f'{d_html}'
+        f'</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def winner_banner(winner: str):
