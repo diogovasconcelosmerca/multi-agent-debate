@@ -27,6 +27,7 @@ from core.theme import (
     radar_chart_html,
     section_header,
     step_indicator,
+    top_brand,
     winner_banner,
 )
 from core.utils import format_timestamp, generate_experiment_id
@@ -34,6 +35,7 @@ from core.utils import format_timestamp, generate_experiment_id
 st.set_page_config(page_title="MADS — Chat", page_icon=favicon_uri(), layout="wide")
 inject_premium_css()
 render_sidebar()
+top_brand()
 
 
 def _s(key, default):

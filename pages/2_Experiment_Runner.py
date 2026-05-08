@@ -18,12 +18,13 @@ from core.debate_engine import run_debate
 from core.evaluator import compare_responses
 from core.sidebar import render_sidebar
 from core.storage import save_result
-from core.theme import C, favicon_uri, inject_premium_css, page_header
+from core.theme import C, favicon_uri, inject_premium_css, page_header, top_brand
 from core.utils import format_timestamp, generate_experiment_id
 
 st.set_page_config(page_title="MADS — Experiments", page_icon=favicon_uri(), layout="wide")
 inject_premium_css()
 render_sidebar()
+top_brand()
 
 
 def _s(key, default):

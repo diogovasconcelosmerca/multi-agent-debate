@@ -190,11 +190,14 @@ class GroqClient:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
+        # Cap at 1024 tokens — the prompts ask for 150–280 word answers,
+        # so anything more is likely the model rambling and burning quota.
+        # The evaluator returns a tiny JSON, so this is comfortable headroom.
         payload = {
             "model": model,
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": 4096,
+            "max_tokens": 1024,
         }
 
         prompt_chars = len(prompt) + len(system)
@@ -336,11 +339,13 @@ class GeminiClient:
         role: str = "agent",
     ) -> str:
         # Gemini accepts a top-level systemInstruction object.
+        # 1024 token cap matches the Groq client — prompts target
+        # 150–280 word answers, so anything more is the model rambling.
         payload: dict[str, Any] = {
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
             "generationConfig": {
                 "temperature": temperature,
-                "maxOutputTokens": 4096,
+                "maxOutputTokens": 1024,
             },
         }
         if system:

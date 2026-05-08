@@ -25,11 +25,13 @@ from core.theme import (
     page_header,
     radar_chart_html,
     section_header,
+    top_brand,
 )
 
 st.set_page_config(page_title="MADS — Dashboard", page_icon=favicon_uri(), layout="wide")
 inject_premium_css()
 render_sidebar()
+top_brand()
 
 PL = dict(
     paper_bgcolor="rgba(0,0,0,0)",

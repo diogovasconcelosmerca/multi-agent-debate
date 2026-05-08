@@ -71,32 +71,36 @@ st.markdown(f"""
 # Features
 # ---------------------------------------------------------------------------
 
+_NO_UL = "text-decoration:none !important;text-decoration-line:none !important;border-bottom:none !important;"
 st.markdown(f"""
 <div class="m-features">
-    <div class="m-feat">
+    <a class="m-feat" href="/Interactive_Chat" target="_self" style="{_NO_UL}">
         <div class="m-feat-bar" style="background:{C['accent']};"></div>
-        <div class="m-feat-title">Interactive Chat</div>
-        <div class="m-feat-desc">
+        <div class="m-feat-title" style="{_NO_UL}">Interactive Chat</div>
+        <div class="m-feat-desc" style="{_NO_UL}">
             Ask a question and watch three agents debate in real time.
             Compare against a single-agent baseline.
         </div>
-    </div>
-    <div class="m-feat">
+        <div class="m-feat-cta" style="{_NO_UL}">Open chat →</div>
+    </a>
+    <a class="m-feat" href="/Experiment_Runner" target="_self" style="{_NO_UL}">
         <div class="m-feat-bar" style="background:{C['agent_b']};"></div>
-        <div class="m-feat-title">Experiment Runner</div>
-        <div class="m-feat-desc">
+        <div class="m-feat-title" style="{_NO_UL}">Experiment Runner</div>
+        <div class="m-feat-desc" style="{_NO_UL}">
             Batch-run experiments on multiple questions.
             Results are auto-saved for later analysis.
         </div>
-    </div>
-    <div class="m-feat">
+        <div class="m-feat-cta" style="{_NO_UL}">Open runner →</div>
+    </a>
+    <a class="m-feat" href="/Results_Dashboard" target="_self" style="{_NO_UL}">
         <div class="m-feat-bar" style="background:{C['agent_c']};"></div>
-        <div class="m-feat-title">Results Dashboard</div>
-        <div class="m-feat-desc">
+        <div class="m-feat-title" style="{_NO_UL}">Results Dashboard</div>
+        <div class="m-feat-desc" style="{_NO_UL}">
             Visualise experiment data with interactive charts.
             Export to CSV for your research.
         </div>
-    </div>
+        <div class="m-feat-cta" style="{_NO_UL}">Open dashboard →</div>
+    </a>
 </div>
 """, unsafe_allow_html=True)
 

@@ -115,6 +115,24 @@ def sidebar_brand():
     _html(html)
 
 
+def top_brand():
+    """Compact MADS logo + name strip for the top of every sub-page.
+
+    Calling this once near the top of each page gives the user a
+    persistent visual anchor — the same identity in the same place,
+    no matter where they navigated from.
+    """
+    uri = _b64(_LOGO_SVG_RAW)
+    html = (
+        f'<a href="/" target="_self" class="m-top-brand">'
+        f'<img src="{uri}" width="22" height="22" alt="MADS" />'
+        f'<span class="m-top-brand-name">MADS</span>'
+        f'<span class="m-top-brand-sub">Multi-Agent Debate System</span>'
+        f'</a>'
+    )
+    _html(html)
+
+
 def sidebar_label(text: str):
     """Tiny uppercase eyebrow used as a sidebar section divider."""
     st.markdown(
@@ -811,13 +829,17 @@ section[data-testid="stSidebar"] a[data-testid="stSidebarNavLink"][aria-current=
     width: 6px; height: 6px; border-radius: 50%; display: inline-block;
 }}
 
-/* === Features === */
+/* === Features (clickable cards) === */
 .m-features {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 2rem 0 0.6rem 0; }}
 .m-feat {{
+    display: block;
     background: {C["bg_surface"]}; border: 1px solid {C["border"]};
-    border-radius: 14px; padding: 22px 20px;
+    border-radius: 14px; padding: 22px 20px 18px 20px;
     transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s;
     position: relative; overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
 }}
 .m-feat::before {{
     content: ""; position: absolute; top: 0; left: 0; right: 0;
@@ -827,11 +849,61 @@ section[data-testid="stSidebar"] a[data-testid="stSidebarNavLink"][aria-current=
 .m-feat:hover {{
     border-color: {C["accent"]}40; transform: translateY(-2px);
     box-shadow: 0 6px 24px rgba(0,0,0,0.32);
+    text-decoration: none;
 }}
 .m-feat:hover::before {{ opacity: 1; }}
+.m-feat:hover .m-feat-cta {{ color: {C["accent"]}; transform: translateX(2px); }}
+/* Streamlit's <a> rule beats a single-class selector even with
+   !important. Stack class selectors to win on specificity. */
+.m-features a.m-feat,
+.m-features a.m-feat:hover,
+.m-features a.m-feat:visited,
+.m-features a.m-feat *,
+.m-features a.m-feat:hover * {{
+    text-decoration: none !important;
+    text-decoration-line: none !important;
+    border-bottom: none !important;
+}}
 .m-feat-bar {{ width: 26px; height: 3px; border-radius: 2px; margin-bottom: 14px; }}
-.m-feat-title {{ font-size: 13.5px; font-weight: 600; color: {C["text_1"]}; margin-bottom: 5px; }}
-.m-feat-desc {{ font-size: 12px; color: {C["text_3"]}; line-height: 1.6; }}
+.m-feat-title {{
+    font-size: 13.5px; font-weight: 600; color: {C["text_1"]};
+    margin-bottom: 5px; text-decoration: none;
+}}
+.m-feat-desc {{
+    font-size: 12px; color: {C["text_3"]}; line-height: 1.6;
+    text-decoration: none;
+}}
+.m-feat-cta {{
+    margin-top: 12px; font-size: 11px; font-weight: 600;
+    color: {C["text_3"]}; letter-spacing: 0.02em;
+    transition: color 0.15s, transform 0.15s;
+    display: inline-block;
+}}
+
+/* === Top-brand strip (persistent header on sub-pages) === */
+.m-top-brand {{
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 10px 4px 4px;
+    margin: -0.5rem 0 1.2rem 0;
+    border-radius: 999px;
+    background: {C["bg_surface"]}; border: 1px solid {C["border"]};
+    text-decoration: none;
+    transition: border-color 0.15s, transform 0.15s;
+}}
+.m-top-brand:hover {{
+    border-color: {C["accent"]}50; transform: translateY(-1px);
+    text-decoration: none;
+}}
+.m-top-brand img {{ display: block; border-radius: 6px; }}
+.m-top-brand-name {{
+    font-size: 12px; font-weight: 700; color: {C["text_1"]};
+    letter-spacing: -0.01em;
+}}
+.m-top-brand-sub {{
+    font-size: 10.5px; color: {C["text_3"]};
+    border-left: 1px solid {C["border_light"]};
+    padding-left: 8px; margin-left: 2px;
+}}
 
 @media (max-width: 720px) {{
     .m-features {{ grid-template-columns: 1fr; }}
