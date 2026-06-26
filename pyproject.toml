@@ -9,7 +9,7 @@ description = "Multi-Agent Debate System — comparing single-agent vs propose/c
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
-authors = [{ name = "Diogo Vasconcelos" }]
+authors = [{ name = "Diogo Vasconcelos" }, { name = "Tiago Bellas" }]
 dependencies = [
     "streamlit>=1.30.0",
     "requests>=2.31.0",
